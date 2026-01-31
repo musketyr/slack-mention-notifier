@@ -269,25 +269,35 @@
         }
 
         /* Screenshots */
-        .screenshots {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
+        .screenshot-hero {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
             max-width: 960px;
             margin: 0 auto;
         }
-        .screenshot {
+        .screenshot-main {
+            flex: 0 1 520px;
             text-align: center;
         }
-        .screenshot img {
+        .screenshot-main img {
             width: 100%;
-            max-width: 440px;
+            border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        }
+        .screenshot-side {
+            flex: 0 1 260px;
+            text-align: center;
+        }
+        .screenshot-side img {
+            width: 100%;
             border-radius: 12px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-            border: 1px solid var(--border);
         }
-        .screenshot figcaption {
-            margin-top: 12px;
+        .screenshot-main figcaption,
+        .screenshot-side figcaption {
+            margin-top: 14px;
             font-size: 14px;
             color: var(--text-light);
             font-weight: 500;
@@ -350,13 +360,22 @@
         }
 
         /* Responsive */
+        @media (max-width: 768px) {
+            .screenshot-hero {
+                flex-direction: column;
+                gap: 24px;
+            }
+            .screenshot-main, .screenshot-side {
+                flex: 1 1 auto;
+                max-width: 400px;
+            }
+        }
         @media (max-width: 600px) {
             .hero h1 { font-size: 32px; }
             .hero .subtitle { font-size: 17px; }
             .section h2 { font-size: 26px; }
             .flow-step::after { display: none; }
             .flow { gap: 8px; }
-            .screenshots { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -440,22 +459,14 @@
 <div class="section">
     <h2>See it in action</h2>
     <p class="section-sub">Simple, native, and stays out of your way.</p>
-    <div class="screenshots">
-        <figure class="screenshot">
-            <img src="screenshot-menubar.jpg" alt="Menu bar dropdown" loading="lazy">
-            <figcaption>Menu bar — sign in, preferences, launch at login</figcaption>
+    <div class="screenshot-hero">
+        <figure class="screenshot-main">
+            <img src="screenshot-preferences.jpg" alt="Preferences window showing emoji picker, reminder templates, and live preview" loading="lazy">
+            <figcaption>Preferences — reaction emoji, reminder templates with live preview, auto-join channels</figcaption>
         </figure>
-        <figure class="screenshot">
-            <img src="screenshot-preferences.jpg" alt="Preferences window" loading="lazy">
-            <figcaption>Preferences — emoji, templates, auto-join, and live preview</figcaption>
-        </figure>
-        <figure class="screenshot">
-            <img src="screenshot-oauth.jpg" alt="Slack OAuth authorization" loading="lazy">
-            <figcaption>One-click Slack sign-in — no tokens to copy</figcaption>
-        </figure>
-        <figure class="screenshot">
-            <img src="screenshot-authorized.jpg" alt="Authorization complete" loading="lazy">
-            <figcaption>Authorized — close the tab and you're connected</figcaption>
+        <figure class="screenshot-side">
+            <img src="screenshot-menubar.jpg" alt="Menu bar dropdown with sign in, preferences, and launch at login" loading="lazy">
+            <figcaption>Menu bar — always one click away</figcaption>
         </figure>
     </div>
 </div>
