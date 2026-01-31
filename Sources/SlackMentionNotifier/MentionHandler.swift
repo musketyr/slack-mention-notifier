@@ -124,7 +124,7 @@ actor MentionHandler {
 
         // 1. React with 👀
         do {
-            try await slackAPI.addReaction(channel: event.channel, timestamp: event.ts, emoji: "eyes")
+            try await slackAPI.addReaction(channel: event.channel, timestamp: event.ts, emoji: config.reactionEmoji)
         } catch {
             print("⚠️  Failed to react: \(error)")
         }
