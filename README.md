@@ -2,7 +2,7 @@
 
 A lightweight macOS menu bar app that monitors Slack mentions via **Socket Mode** (WebSocket) and:
 
-- 👀 Reacts to the message
+- 👀 Reacts to the message (configurable emoji)
 - ✅ Creates an Apple Reminder
 - 🔔 Shows a macOS notification
 
@@ -30,91 +30,54 @@ cd slack-mention-notifier
 make run
 ```
 
-## Prerequisites
+When building from source, create a config file (see [Configuration](#configuration) below).
 
-A **Slack App** with Socket Mode enabled (see [Slack App Setup](#slack-app-setup-details) below)
+## Configuration
 
-## Setup
-
-There are two ways to configure the app:
-
-### Option A: Sign in with Slack (OAuth — recommended)
-
-This is the easiest setup. You only need the app-level token and OAuth credentials:
+The DMG download has secrets embedded — just sign in and go. When building from source, create a config file:
 
 ```bash
 mkdir -p ~/.config/slack-mention-notifier
 cat > ~/.config/slack-mention-notifier/config.env << 'EOF'
 SLACK_APP_TOKEN=xapp-1-...          # Socket Mode app-level token
-SLACK_CLIENT_ID=123456.789012       # From Slack App → Basic Information
-SLACK_CLIENT_SECRET=abc123...       # From Slack App → Basic Information
+SLACK_BOT_TOKEN=xoxb-...            # Bot token (or use OAuth below)
+SLACK_TRACKED_USER_ID=U...          # Your Slack user ID (or use OAuth)
 
-# Optional
-APPLE_REMINDERS_LIST=Reminders
+# --- OAuth (alternative to BOT_TOKEN + TRACKED_USER_ID) ---
+# SLACK_CLIENT_ID=123456.789012
+# SLACK_CLIENT_SECRET=abc123...
+
+# --- Optional ---
+# APPLE_REMINDERS_LIST=Reminders    # Target Reminders list (default: Reminders)
+# REACTION_EMOJI=eyes               # Slack emoji name for reactions (default: eyes)
+# AUTO_JOIN_CHANNELS=true            # Auto-join all public channels (default: false)
 EOF
-```
-
-Then launch the app and click **"Sign in with Slack..."** in the menu bar. This will:
-1. Open your browser to authorize the app
-2. Store the bot token securely in your macOS Keychain
-3. Automatically detect your Slack user ID
-
-### Option B: Manual token configuration
-
-For advanced users or CI/automation:
-
-```bash
-mkdir -p ~/.config/slack-mention-notifier
-cat > ~/.config/slack-mention-notifier/config.env << 'EOF'
-SLACK_APP_TOKEN=xapp-1-...          # Socket Mode app-level token
-SLACK_BOT_TOKEN=xoxb-...            # Bot token
-SLACK_TRACKED_USER_ID=U...          # Your Slack user ID
-
-# Optional
-APPLE_REMINDERS_LIST=Reminders
-EOF
-```
-
-> **Note:** If you have a legacy `~/.slack-mention-notifier.env` file, it will be migrated automatically on first run.
-
-### 2. Build and run
-
-```bash
-# Clone
-git clone https://github.com/musketyr/slack-mention-notifier.git
-cd slack-mention-notifier
-
-# Build
-make build
-
-# Run (foreground, for testing)
-make run
 ```
 
 On first run, macOS will prompt for **Reminders access** — click OK.
 
-### 3. Install as auto-start service
-
-```bash
-make autostart
-```
-
-This installs the binary to `~/.local/bin/` and creates a LaunchAgent that starts on login and restarts if it crashes.
-
 ## Usage
 
-Once running, you'll see a 🔔 bell icon in the menu bar. That's it — mentions are handled automatically.
+Once running, you'll see a 🔔 bell icon in the menu bar with these options:
 
-### Commands
+- **Sign in with Slack...** — OAuth flow (opens browser)
+- **Launch at Login** — toggle auto-start on login
+- **Sign Out** — clear stored tokens
+- **Quit**
+
+Mentions are handled automatically — react, reminder, notification.
+
+### Build commands
 
 | Command | Description |
 |---------|-------------|
 | `make build` | Build release binary |
 | `make run` | Build and run in foreground |
+| `make bundle` | Build universal .app bundle + DMG |
 | `make install` | Install binary to ~/.local/bin |
-| `make autostart` | Install + enable auto-start on login |
-| `make stop` | Stop the service |
-| `make uninstall` | Remove binary + auto-start |
+| `make autostart` | Install + enable auto-start via LaunchAgent |
+| `make stop` | Stop the LaunchAgent service |
+| `make uninstall` | Remove binary + LaunchAgent |
 
 ### Logs
 
@@ -122,72 +85,33 @@ Once running, you'll see a 🔔 bell icon in the menu bar. That's it — mention
 tail -f /tmp/slack-mention-notifier.log
 ```
 
-### Open in Xcode
-
-```bash
-open Package.swift
-```
-
 ## Architecture
 
 ```
 Slack (WebSocket) ──Socket Mode──▶ SlackSocketMode
                                         │
+                                    onConnect
+                                        │
                                         ▼
                                   MentionHandler
-                                     │     │
-                                ┌────┘     └────┐
-                                ▼               ▼
-                           SlackAPI      ReminderService
-                          (react 👀)     (EventKit)
-                                              │
-                                              ▼
-                                        Apple Reminders
+                                   │    │    │
+                              ┌────┘    │    └────┐
+                              ▼         ▼         ▼
+                         SlackAPI  ReminderService  macOS
+                        (react +   (EventKit)    notification
+                        resolve)        │
+                              │         ▼
+                              │   Apple Reminders
+                              ▼
+                         Catch-up on
+                         reconnect
 ```
 
-## Slack App Setup Details
+## Slack App Setup
 
-### Socket Mode
+### Quick setup (manifest)
 
-Socket Mode lets the app receive events via WebSocket instead of requiring a public HTTP endpoint. No server, no ngrok, no tunnel.
-
-1. Go to your Slack App → **Socket Mode** → Enable
-2. Generate an **App-Level Token** with `connections:write` scope
-3. This gives you the `xapp-...` token
-
-### Event Subscriptions
-
-Subscribe to these bot events:
-- `message.channels` — messages in public channels
-- `message.groups` — messages in private channels
-- `message.im` — direct messages (optional)
-- `message.mpim` — group DMs (optional)
-
-### OAuth (for "Sign in with Slack")
-
-If distributing the app to others:
-
-1. Go to **OAuth & Permissions** → **Redirect URLs**
-2. Add: `http://localhost` (the app uses a dynamic port, so just the host is needed)
-3. Note the **Client ID** and **Client Secret** from **Basic Information**
-
-The app starts a temporary local HTTP server during sign-in to receive the OAuth callback.
-
-### Required Bot Token Scopes
-
-- `reactions:write` — react to messages
-- `channels:history` — read public channel messages
-- `channels:read` — get channel names
-- `groups:history` — read private channel messages
-- `groups:read` — get private channel names
-- `im:history` — read direct messages
-- `im:read` — list DM conversations
-- `mpim:history` — read group DMs
-- `mpim:read` — list group DM conversations
-- `users:read` — get user display names
-- `chat:write` — for getPermalink
-
-### App Manifest
+Go to [api.slack.com/apps](https://api.slack.com/apps) → Create New App → **From a manifest** → paste:
 
 ```json
 {
@@ -204,11 +128,12 @@ The app starts a temporary local HTTP server during sign-in to receive the OAuth
   },
   "oauth_config": {
     "redirect_urls": [
-      "http://localhost"
+      "https://vladimir.orany.cz/slack-mention-notifier/callback/"
     ],
     "scopes": {
       "bot": [
         "channels:history",
+        "channels:join",
         "channels:read",
         "chat:write",
         "groups:history",
@@ -240,6 +165,29 @@ The app starts a temporary local HTTP server during sign-in to receive the OAuth
   }
 }
 ```
+
+After creating the app:
+
+1. **Socket Mode** → generate an App-Level Token with `connections:write` scope → gives you `xapp-...`
+2. **Install to workspace** → gives you `xoxb-...` bot token
+3. **Invite the bot** to channels: `/invite @Mention Notifier` (or set `AUTO_JOIN_CHANNELS=true` for public channels)
+
+### Required scopes explained
+
+| Scope | Purpose |
+|-------|---------|
+| `channels:history` | Read public channel messages |
+| `channels:join` | Auto-join public channels |
+| `channels:read` | Get channel names |
+| `groups:history` | Read private channel messages |
+| `groups:read` | Get private channel names |
+| `im:history` | Read direct messages |
+| `im:read` | List DM conversations |
+| `mpim:history` | Read group DMs |
+| `mpim:read` | List group DM conversations |
+| `reactions:write` | React to messages |
+| `users:read` | Get user display names |
+| `chat:write` | Get message permalinks |
 
 ## License
 
