@@ -40,6 +40,27 @@ sed "s/__VERSION__/${VERSION}/g" resources/Info.plist > "${BUNDLE_DIR}/Contents/
 # Create PkgInfo
 echo -n "APPL????" > "${BUNDLE_DIR}/Contents/PkgInfo"
 
+# Create .icns icon
+echo "🎨 Creating app icon..."
+ICONSET="dist/AppIcon.iconset"
+rm -rf "${ICONSET}"
+mkdir -p "${ICONSET}"
+
+# Generate icon sizes from SVG (requires rsvg-convert or sips on macOS)
+for size in 16 32 64 128 256 512; do
+    size2x=$((size * 2))
+    if command -v sips &> /dev/null; then
+        sips -z ${size} ${size} resources/icon_1024.png --out "${ICONSET}/icon_${size}x${size}.png" &>/dev/null
+        sips -z ${size2x} ${size2x} resources/icon_1024.png --out "${ICONSET}/icon_${size}x${size}@2x.png" &>/dev/null
+    else
+        convert -resize ${size}x${size} resources/icon_1024.png "${ICONSET}/icon_${size}x${size}.png"
+        convert -resize ${size2x}x${size2x} resources/icon_1024.png "${ICONSET}/icon_${size}x${size}@2x.png"
+    fi
+done
+
+iconutil -c icns "${ICONSET}" -o "${BUNDLE_DIR}/Contents/Resources/AppIcon.icns"
+rm -rf "${ICONSET}"
+
 echo "✅ App bundle created: ${BUNDLE_DIR}"
 
 # 3. Create DMG

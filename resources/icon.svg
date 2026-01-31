@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#611f69"/>
+      <stop offset="100%" style="stop-color:#4A154B"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded square background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="220" ry="220" fill="url(#bg)"/>
+  
+  <!-- Bell shape -->
+  <ellipse cx="460" cy="380" rx="200" ry="220" fill="white"/>
+  <rect x="260" y="380" width="400" height="260" fill="white"/>
+  <rect x="210" y="620" width="500" height="70" rx="35" fill="white"/>
+  <circle cx="460" cy="748" r="44" fill="white"/>
+  <circle cx="460" cy="168" r="32" fill="white"/>
+  <rect x="444" y="168" width="32" height="40" fill="white"/>
+  
+  <!-- @ badge (mention) - top right -->
+  <circle cx="710" cy="250" r="130" fill="#E01E5A"/>
+  <text x="710" y="258" text-anchor="middle" dominant-baseline="central" 
+        font-family="Helvetica, Arial, sans-serif" 
+        font-size="190" font-weight="700" fill="white">@</text>
+  
+  <!-- Checkmark badge (reminders) - bottom right -->
+  <circle cx="720" cy="620" r="90" fill="#36C759"/>
+  <polyline points="682,620 710,652 762,592" 
+            stroke="white" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
