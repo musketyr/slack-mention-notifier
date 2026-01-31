@@ -141,15 +141,23 @@ actor MentionHandler {
 
     /// Replace <@U...> mentions in text with @displayName.
     private func resolveMentions(in text: String) async -> String {
-        // Find all <@UXXXXXX> patterns
-        let pattern = /<@(U[A-Z0-9]+)>/
+        guard let regex = try? NSRegularExpression(pattern: "<@(U[A-Z0-9]+)>") else { return text }
+
+        let nsText = text as NSString
+        let matches = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
         var result = text
 
-        let matches = text.matches(of: pattern)
+        // Collect unique user IDs
+        var userIds = Set<String>()
         for match in matches {
-            let userId = String(match.output.1)
-            let displayName: String
+            if match.numberOfRanges > 1 {
+                userIds.insert(nsText.substring(with: match.range(at: 1)))
+            }
+        }
 
+        // Resolve each user ID
+        for userId in userIds {
+            let displayName: String
             if let cached = userNameCache[userId] {
                 displayName = cached
             } else {
@@ -162,7 +170,6 @@ actor MentionHandler {
                     displayName = userId
                 }
             }
-
             result = result.replacingOccurrences(of: "<@\(userId)>", with: "@\(displayName)")
         }
 
