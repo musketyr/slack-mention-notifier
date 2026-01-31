@@ -31,10 +31,12 @@ actor OAuthFlow {
         self.scopes = scopes
     }
 
-    /// Fixed port for the OAuth callback server.
-    /// Must match the redirect URL configured in the Slack app.
+    /// Fixed port for the local callback server.
     static let callbackPort: UInt16 = 17380
-    static let redirectUri = "http://localhost:\(callbackPort)/slack/callback"
+
+    /// The redirect URI registered in the Slack app (GitHub Pages).
+    /// This page redirects to http://localhost:17380/slack/callback with the code.
+    static let redirectUri = "https://musketyr.github.io/slack-mention-notifier/callback/"
 
     /// Run the full OAuth flow: start local server → open browser → wait for code → exchange for token.
     /// Returns (botToken, teamName, authedUserId).
@@ -44,7 +46,7 @@ actor OAuthFlow {
         try await server.start(port: Self.callbackPort)
         let redirectUri = Self.redirectUri
 
-        print("🔐 OAuth callback server listening on port \(port)")
+        print("🔐 OAuth callback server listening on port \(Self.callbackPort)")
 
         // 2. Open Slack authorization page in browser
         let scopeString = scopes.joined(separator: ",")
