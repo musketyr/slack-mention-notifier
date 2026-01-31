@@ -6,6 +6,7 @@ struct Config {
     let slackBotToken: String       // xoxb-... (Bot token for API calls)
     let trackedUserId: String       // U... (Slack user ID to track mentions for)
     let reminderListName: String    // Apple Reminders list name (default: "Reminders")
+    let autoJoinChannels: Bool      // Automatically join all public channels (default: false)
 
     // OAuth settings (optional — only needed for "Sign in with Slack" flow)
     let slackClientId: String?
@@ -85,6 +86,7 @@ struct Config {
             slackBotToken: botToken ?? "",
             trackedUserId: trackedUser ?? "",
             reminderListName: env("APPLE_REMINDERS_LIST") ?? "Reminders",
+            autoJoinChannels: env("AUTO_JOIN_CHANNELS")?.lowercased() == "true",
             slackClientId: env("SLACK_CLIENT_ID"),
             slackClientSecret: env("SLACK_CLIENT_SECRET")
         )

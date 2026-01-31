@@ -120,6 +120,56 @@ struct SlackAPI {
         return result["messages"] as? [[String: Any]] ?? []
     }
 
+    /// List all public channels in the workspace.
+    func listAllPublicChannels() async throws -> [(id: String, name: String, isMember: Bool)] {
+        var channels: [(id: String, name: String, isMember: Bool)] = []
+        var cursor: String? = nil
+
+        repeat {
+            var params: [String: String] = [
+                "types": "public_channel",
+                "exclude_archived": "true",
+                "limit": "200"
+            ]
+            if let cursor = cursor {
+                params["cursor"] = cursor
+            }
+
+            let result = try await get("conversations.list", params: params)
+
+            if result["ok"] as? Bool != true {
+                print("⚠️  conversations.list failed: \(result["error"] as? String ?? "unknown")")
+                break
+            }
+
+            if let chs = result["channels"] as? [[String: Any]] {
+                for ch in chs {
+                    if let id = ch["id"] as? String {
+                        let name = ch["name"] as? String ?? id
+                        let isMember = ch["is_member"] as? Bool ?? false
+                        channels.append((id: id, name: name, isMember: isMember))
+                    }
+                }
+            }
+
+            cursor = (result["response_metadata"] as? [String: Any])?["next_cursor"] as? String
+            if cursor?.isEmpty == true { cursor = nil }
+        } while cursor != nil
+
+        return channels
+    }
+
+    /// Join a public channel.
+    func joinChannel(channelId: String) async throws {
+        let result = try await post("conversations.join", body: ["channel": channelId])
+        if result["ok"] as? Bool != true {
+            let error = result["error"] as? String ?? "unknown"
+            if error != "already_in_channel" {
+                print("⚠️  Failed to join channel \(channelId): \(error)")
+            }
+        }
+    }
+
     // MARK: - HTTP
 
     /// POST with JSON body (for write methods like reactions.add).

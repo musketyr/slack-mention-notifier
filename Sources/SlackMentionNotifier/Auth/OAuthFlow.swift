@@ -13,6 +13,7 @@ actor OAuthFlow {
     /// Bot scopes required by the app.
     static let requiredScopes = [
         "channels:history",
+        "channels:join",
         "channels:read",
         "chat:write",
         "groups:history",

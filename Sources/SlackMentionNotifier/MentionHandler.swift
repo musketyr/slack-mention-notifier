@@ -24,6 +24,11 @@ actor MentionHandler {
         // Request Reminders access first
         await reminderService.requestAccess()
 
+        // Auto-join all public channels if configured
+        if config.autoJoinChannels {
+            await joinAllPublicChannels()
+        }
+
         print("👂 Listening for mentions of <@\(config.trackedUserId)>...")
 
         socketMode = SlackSocketMode(appToken: config.slackAppToken,
@@ -35,6 +40,27 @@ actor MentionHandler {
 
     func stop() async {
         await socketMode?.stop()
+    }
+
+    /// Join all public channels the bot isn't already a member of.
+    private func joinAllPublicChannels() async {
+        do {
+            let channels = try await slackAPI.listAllPublicChannels()
+            let toJoin = channels.filter { !$0.isMember }
+
+            if toJoin.isEmpty {
+                print("✅ Already in all \(channels.count) public channels")
+                return
+            }
+
+            print("📢 Joining \(toJoin.count) public channel(s)...")
+            for channel in toJoin {
+                try await slackAPI.joinChannel(channelId: channel.id)
+            }
+            print("✅ Joined \(toJoin.count) channel(s), now in \(channels.count) total")
+        } catch {
+            print("⚠️  Auto-join failed: \(error)")
+        }
     }
 
     /// Catch up on missed mentions since last seen timestamp.
