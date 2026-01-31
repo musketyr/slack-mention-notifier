@@ -189,6 +189,16 @@ After creating the app:
 | `users:read` | Get user display names |
 | `chat:write` | Get message permalinks |
 
+## Multi-user usage
+
+Multiple people in the same workspace can use the app simultaneously:
+
+1. A workspace admin installs the Slack app once (via "Add to Slack" or the manifest)
+2. Each user downloads the macOS app and signs in with their own Slack account
+3. Each user's app only processes mentions of **their own** user ID — other messages are silently discarded
+
+**Limit:** Slack allows a maximum of **10 concurrent Socket Mode connections** per app-level token. This means up to 10 users can run the app at the same time. For larger teams, you'll need to generate additional app-level tokens in the Slack app settings (Socket Mode → generate another token with `connections:write`).
+
 ## License
 
 MIT
