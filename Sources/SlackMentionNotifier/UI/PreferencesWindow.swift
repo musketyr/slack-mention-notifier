@@ -198,7 +198,8 @@ class PreferencesWindow: NSWindow {
 
         reminderListPopup = NSPopUpButton(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26))
         reminderListPopup.removeAllItems()
-        populateReminderLists()
+        reminderListPopup.addItem(withTitle: "Loading…")
+        reminderListPopup.isEnabled = false
         contentView.addSubview(reminderListPopup)
 
         y -= 34
@@ -453,6 +454,7 @@ class PreferencesWindow: NSWindow {
         } else {
             reminderListPopup.addItems(withTitles: lists)
         }
+        reminderListPopup.isEnabled = true
     }
 
     private func populateStandardEmoji() {
@@ -465,17 +467,21 @@ class PreferencesWindow: NSWindow {
     private func requestRemindersAccessIfNeeded() {
         Task {
             let granted = await ReminderService.requestSharedAccess()
-            if granted {
-                await MainActor.run {
+            await MainActor.run {
+                if granted {
                     let config = Config.load()
                     populateReminderLists()
                     Logger.log("📋 Preferences: loaded \(reminderListPopup.numberOfItems) reminder list(s)")
                     if reminderListPopup.itemTitles.contains(config.reminderListName) {
                         reminderListPopup.selectItem(withTitle: config.reminderListName)
                     }
+                } else {
+                    Logger.log("⚠️  Preferences: Reminders access not granted")
+                    // Fall back to default so the popup is still usable
+                    reminderListPopup.removeAllItems()
+                    reminderListPopup.addItem(withTitle: "Reminders")
+                    reminderListPopup.isEnabled = true
                 }
-            } else {
-                Logger.log("⚠️  Preferences: Reminders access not granted")
             }
         }
     }

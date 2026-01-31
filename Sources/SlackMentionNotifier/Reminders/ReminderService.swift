@@ -74,7 +74,18 @@ class ReminderService {
         }
 
         Logger.log("⚠️  Reminder list '\(listName)' not found, using default")
-        return defaultCalendar ?? calendars.first!
+        if let cal = defaultCalendar ?? calendars.first {
+            return cal
+        }
+        // No calendars at all — create a fallback (shouldn't happen, but don't crash)
+        Logger.log("⚠️  No Reminders calendars found, creating fallback")
+        let fallback = EKCalendar(for: .reminder, eventStore: store)
+        fallback.title = "Reminders"
+        if let source = store.sources.first(where: { $0.sourceType == .local }) ?? store.sources.first {
+            fallback.source = source
+            try? store.saveCalendar(fallback, commit: true)
+        }
+        return fallback
     }
 
     /// Shared store for listing calendars (persists across calls so calendars are available).
