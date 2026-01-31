@@ -11,11 +11,20 @@ class PreferencesWindow: NSWindow {
     private var reminderListPopup: NSPopUpButton!
     private var emojiField: NSComboBox!
     private var autoJoinCheckbox: NSButton!
-    private var titleTemplateCombo: NSComboBox!
-    private var notesTemplateCombo: NSComboBox!
+    private var titlePresetPopup: NSPopUpButton!
+    private var notesPresetPopup: NSPopUpButton!
+    private var titleCustomField: NSTextField!
+    private var notesCustomField: NSTextField!
     private var customEmojis: [String] = []
     private var loadingSpinner: NSProgressIndicator!
     private var previewLabel: NSTextField!
+    private var errorLabel: NSTextField!
+    private var saveButton: NSButton!
+
+    /// Known template placeholders.
+    private static let validPlaceholders: Set<String> = [
+        "sender", "channel", "message", "permalink", "date"
+    ]
 
     /// Common standard Slack emoji names with their Unicode glyphs.
     private static let standardEmojis: [(name: String, glyph: String)] = [
@@ -32,7 +41,7 @@ class PreferencesWindow: NSWindow {
 
     init() {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 480),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 540),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -56,7 +65,7 @@ class PreferencesWindow: NSWindow {
         let fieldWidth: CGFloat = contentView.bounds.width - fieldX - margin
         var y: CGFloat = contentView.bounds.height - 44
 
-        // --- Section: General ---
+        // ═══════════════════ Section: General ═══════════════════
         let generalHeader = makeSectionHeader("General", x: margin, y: y)
         contentView.addSubview(generalHeader)
         y -= 30
@@ -107,29 +116,33 @@ class PreferencesWindow: NSWindow {
 
         y -= 40
 
-        // --- Section: Reminder Templates ---
+        // ═══════════════════ Section: Reminder Templates ═══════════════════
         let templateHeader = makeSectionHeader("Reminder Templates", x: margin, y: y)
         contentView.addSubview(templateHeader)
-        y -= 22
-        let templateHint = NSTextField(labelWithString: "Use \\n for newlines. Placeholders: {sender} {channel} {message} {permalink} {date}")
-        templateHint.font = NSFont.systemFont(ofSize: 11)
-        templateHint.textColor = .tertiaryLabelColor
-        templateHint.frame = NSRect(x: margin, y: y, width: contentView.bounds.width - margin * 2, height: 16)
-        contentView.addSubview(templateHint)
         y -= 30
 
         // --- Title Template ---
         let titleLabel = makeLabel("Title:", x: margin, y: y)
         contentView.addSubview(titleLabel)
 
-        titleTemplateCombo = NSComboBox(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26))
-        titleTemplateCombo.isEditable = true
-        titleTemplateCombo.completes = false
-        titleTemplateCombo.numberOfVisibleItems = 6
-        titleTemplateCombo.addItems(withObjectValues: Config.titlePresets.map { $0.template })
-        titleTemplateCombo.target = self
-        titleTemplateCombo.action = #selector(templateChanged)
-        contentView.addSubview(titleTemplateCombo)
+        titlePresetPopup = NSPopUpButton(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26))
+        for preset in Config.titlePresets {
+            titlePresetPopup.addItem(withTitle: preset.name)
+        }
+        titlePresetPopup.addItem(withTitle: "Custom")
+        titlePresetPopup.target = self
+        titlePresetPopup.action = #selector(titlePresetChanged)
+        contentView.addSubview(titlePresetPopup)
+
+        y -= 30
+
+        titleCustomField = NSTextField(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 24))
+        titleCustomField.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        titleCustomField.placeholderString = "e.g. Slack: {sender} in #{channel}"
+        titleCustomField.isHidden = true
+        titleCustomField.target = self
+        titleCustomField.action = #selector(customTemplateEdited)
+        contentView.addSubview(titleCustomField)
 
         y -= 34
 
@@ -137,19 +150,46 @@ class PreferencesWindow: NSWindow {
         let notesLabel = makeLabel("Notes:", x: margin, y: y)
         contentView.addSubview(notesLabel)
 
-        notesTemplateCombo = NSComboBox(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26))
-        notesTemplateCombo.isEditable = true
-        notesTemplateCombo.completes = false
-        notesTemplateCombo.numberOfVisibleItems = 6
-        notesTemplateCombo.addItems(withObjectValues: Config.notesPresets.map { $0.template })
-        notesTemplateCombo.target = self
-        notesTemplateCombo.action = #selector(templateChanged)
-        contentView.addSubview(notesTemplateCombo)
+        notesPresetPopup = NSPopUpButton(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26))
+        for preset in Config.notesPresets {
+            notesPresetPopup.addItem(withTitle: preset.name)
+        }
+        notesPresetPopup.addItem(withTitle: "Custom")
+        notesPresetPopup.target = self
+        notesPresetPopup.action = #selector(notesPresetChanged)
+        contentView.addSubview(notesPresetPopup)
 
         y -= 30
 
+        notesCustomField = NSTextField(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 24))
+        notesCustomField.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        notesCustomField.placeholderString = #"e.g. {message}\n\n{permalink}"#
+        notesCustomField.isHidden = true
+        notesCustomField.target = self
+        notesCustomField.action = #selector(customTemplateEdited)
+        contentView.addSubview(notesCustomField)
+
+        y -= 14
+        let templateHint = NSTextField(labelWithString: #"Use \n for newlines. Placeholders: {sender} {channel} {message} {permalink} {date}"#)
+        templateHint.font = NSFont.systemFont(ofSize: 11)
+        templateHint.textColor = .tertiaryLabelColor
+        templateHint.frame = NSRect(x: fieldX, y: y, width: fieldWidth, height: 16)
+        contentView.addSubview(templateHint)
+
+        y -= 28
+
+        // --- Error Label ---
+        errorLabel = NSTextField(labelWithString: "")
+        errorLabel.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        errorLabel.textColor = .systemRed
+        errorLabel.frame = NSRect(x: fieldX, y: y, width: fieldWidth, height: 16)
+        errorLabel.isHidden = true
+        contentView.addSubview(errorLabel)
+
+        y -= 8
+
         // --- Preview ---
-        let previewBox = NSBox(frame: NSRect(x: fieldX - 8, y: y - 64, width: fieldWidth + 16, height: 80))
+        let previewBox = NSBox(frame: NSRect(x: fieldX - 8, y: y - 80, width: fieldWidth + 16, height: 86))
         previewBox.boxType = .custom
         previewBox.borderColor = .separatorColor
         previewBox.borderWidth = 1
@@ -161,13 +201,13 @@ class PreferencesWindow: NSWindow {
         previewLabel = NSTextField(wrappingLabelWithString: "")
         previewLabel.font = NSFont.systemFont(ofSize: 11)
         previewLabel.textColor = .labelColor
-        previewLabel.frame = NSRect(x: fieldX, y: y - 60, width: fieldWidth, height: 72)
+        previewLabel.frame = NSRect(x: fieldX, y: y - 76, width: fieldWidth, height: 78)
         previewLabel.maximumNumberOfLines = 6
         previewLabel.lineBreakMode = .byTruncatingTail
         contentView.addSubview(previewLabel)
 
         // --- Buttons ---
-        let saveButton = NSButton(title: "Save", target: self, action: #selector(savePreferences))
+        saveButton = NSButton(title: "Save", target: self, action: #selector(savePreferences))
         saveButton.bezelStyle = .rounded
         saveButton.keyEquivalent = "\r"
         saveButton.frame = NSRect(x: contentView.bounds.width - margin - 80, y: margin, width: 80, height: 32)
@@ -186,6 +226,101 @@ class PreferencesWindow: NSWindow {
         label.textColor = .labelColor
         label.frame = NSRect(x: x, y: y, width: 300, height: 18)
         return label
+    }
+
+    // MARK: - Template Preset Handlers
+
+    @objc private func titlePresetChanged() {
+        let isCustom = titlePresetPopup.titleOfSelectedItem == "Custom"
+        titleCustomField.isHidden = !isCustom
+        if !isCustom {
+            titleCustomField.stringValue = ""
+        }
+        validateAndPreview()
+    }
+
+    @objc private func notesPresetChanged() {
+        let isCustom = notesPresetPopup.titleOfSelectedItem == "Custom"
+        notesCustomField.isHidden = !isCustom
+        if !isCustom {
+            notesCustomField.stringValue = ""
+        }
+        validateAndPreview()
+    }
+
+    @objc private func customTemplateEdited() {
+        validateAndPreview()
+    }
+
+    /// Get the effective title template based on current selection.
+    private func effectiveTitleTemplate() -> String {
+        if titlePresetPopup.titleOfSelectedItem == "Custom" {
+            return titleCustomField.stringValue
+        }
+        let selectedName = titlePresetPopup.titleOfSelectedItem ?? ""
+        return Config.titlePresets.first { $0.name == selectedName }?.template ?? Config.defaultTitleTemplate
+    }
+
+    /// Get the effective notes template based on current selection.
+    private func effectiveNotesTemplate() -> String {
+        if notesPresetPopup.titleOfSelectedItem == "Custom" {
+            return notesCustomField.stringValue
+        }
+        let selectedName = notesPresetPopup.titleOfSelectedItem ?? ""
+        return Config.notesPresets.first { $0.name == selectedName }?.template ?? Config.defaultNotesTemplate
+    }
+
+    /// Find unknown placeholders in a template string.
+    private func unknownPlaceholders(in template: String) -> [String] {
+        guard let regex = try? NSRegularExpression(pattern: "\\{([a-zA-Z_]+)\\}") else { return [] }
+        let nsTemplate = template as NSString
+        let matches = regex.matches(in: template, range: NSRange(location: 0, length: nsTemplate.length))
+        var unknown: [String] = []
+        for match in matches {
+            if match.numberOfRanges > 1 {
+                let name = nsTemplate.substring(with: match.range(at: 1))
+                if !Self.validPlaceholders.contains(name) {
+                    unknown.append("{\(name)}")
+                }
+            }
+        }
+        return unknown
+    }
+
+    /// Validate templates and update preview. Returns true if valid.
+    @discardableResult
+    private func validateAndPreview() -> Bool {
+        let titleTemplate = effectiveTitleTemplate()
+        let notesTemplate = effectiveNotesTemplate()
+
+        let unknownTitle = unknownPlaceholders(in: titleTemplate)
+        let unknownNotes = unknownPlaceholders(in: notesTemplate)
+        let allUnknown = unknownTitle + unknownNotes
+
+        if !allUnknown.isEmpty {
+            let unique = Array(Set(allUnknown)).sorted()
+            errorLabel.stringValue = "⚠ Unknown placeholder\(unique.count > 1 ? "s" : ""): \(unique.joined(separator: ", "))"
+            errorLabel.isHidden = false
+            saveButton.isEnabled = false
+            previewLabel.stringValue = ""
+            return false
+        }
+
+        errorLabel.isHidden = true
+        saveButton.isEnabled = true
+
+        // Render preview
+        let title = Config.applyTemplate(titleTemplate,
+                                          sender: "Jane Doe", channel: "general",
+                                          message: "Hey @you, can you review this PR?",
+                                          permalink: "https://slack.com/archives/C01/p1234")
+        let notes = Config.applyTemplate(notesTemplate,
+                                          sender: "Jane Doe", channel: "general",
+                                          message: "Hey @you, can you review this PR?",
+                                          permalink: "https://slack.com/archives/C01/p1234")
+
+        previewLabel.stringValue = "📌 \(title)\n📝 \(notes)"
+        return true
     }
 
     private func populateReminderLists() {
@@ -248,31 +383,27 @@ class PreferencesWindow: NSWindow {
         // Set auto-join
         autoJoinCheckbox.state = config.autoJoinChannels ? .on : .off
 
-        // Set templates
-        titleTemplateCombo.stringValue = config.reminderTitleTemplate
-        notesTemplateCombo.stringValue = config.reminderNotesTemplate
+        // Set title template
+        if let match = Config.titlePresets.first(where: { $0.template == config.reminderTitleTemplate }) {
+            titlePresetPopup.selectItem(withTitle: match.name)
+            titleCustomField.isHidden = true
+        } else {
+            titlePresetPopup.selectItem(withTitle: "Custom")
+            titleCustomField.isHidden = false
+            titleCustomField.stringValue = config.reminderTitleTemplate
+        }
 
-        updatePreview()
-    }
+        // Set notes template
+        if let match = Config.notesPresets.first(where: { $0.template == config.reminderNotesTemplate }) {
+            notesPresetPopup.selectItem(withTitle: match.name)
+            notesCustomField.isHidden = true
+        } else {
+            notesPresetPopup.selectItem(withTitle: "Custom")
+            notesCustomField.isHidden = false
+            notesCustomField.stringValue = config.reminderNotesTemplate
+        }
 
-    @objc private func templateChanged() {
-        updatePreview()
-    }
-
-    private func updatePreview() {
-        let titleTemplate = titleTemplateCombo.stringValue
-        let notesTemplate = notesTemplateCombo.stringValue
-
-        let title = Config.applyTemplate(titleTemplate,
-                                          sender: "Jane Doe", channel: "general",
-                                          message: "Hey @you, can you review this PR?",
-                                          permalink: "https://slack.com/archives/C01/p1234")
-        let notes = Config.applyTemplate(notesTemplate,
-                                          sender: "Jane Doe", channel: "general",
-                                          message: "Hey @you, can you review this PR?",
-                                          permalink: "https://slack.com/archives/C01/p1234")
-
-        previewLabel.stringValue = "📌 \(title)\n📝 \(notes)"
+        validateAndPreview()
     }
 
     /// Load custom emoji from Slack (call after sign-in).
@@ -304,11 +435,13 @@ class PreferencesWindow: NSWindow {
     }
 
     @objc private func savePreferences() {
+        guard validateAndPreview() else { return }
+
         let reminderList = reminderListPopup.titleOfSelectedItem ?? "Reminders"
         var emoji = emojiField.stringValue.trimmingCharacters(in: .whitespaces)
         let autoJoin = autoJoinCheckbox.state == .on
-        let titleTemplate = titleTemplateCombo.stringValue.trimmingCharacters(in: .whitespaces)
-        let notesTemplate = notesTemplateCombo.stringValue.trimmingCharacters(in: .whitespaces)
+        let titleTemplate = effectiveTitleTemplate()
+        let notesTemplate = effectiveNotesTemplate()
 
         // Strip glyph prefix if user selected from dropdown (e.g. "👀  eyes" → "eyes", "✦  custom" → "custom")
         if let spaceRange = emoji.range(of: "  ") {
