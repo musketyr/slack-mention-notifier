@@ -196,6 +196,8 @@ enum OAuthError: Error, LocalizedError {
 private actor CallbackServer {
     private var listener: NWListener?
     private var continuation: CheckedContinuation<String, Error>?
+    private var bufferedCode: String?
+    private var bufferedError: OAuthError?
 
     /// Start the server on a fixed port.
     func start(port: UInt16) throws {
@@ -230,6 +232,16 @@ private actor CallbackServer {
 
     /// Wait for the authorization code from the callback.
     func waitForCode() async throws -> String {
+        // Check if code already arrived before we started waiting
+        if let code = bufferedCode {
+            bufferedCode = nil
+            return code
+        }
+        if let error = bufferedError {
+            bufferedError = nil
+            throw error
+        }
+
         return try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
 
@@ -247,6 +259,26 @@ private actor CallbackServer {
     func stop() {
         listener?.cancel()
         listener = nil
+    }
+
+    /// Deliver the code — either resume the continuation or buffer it.
+    private func deliverCode(_ code: String) {
+        if let continuation = self.continuation {
+            self.continuation = nil
+            continuation.resume(returning: code)
+        } else {
+            bufferedCode = code
+        }
+    }
+
+    /// Deliver an error — either resume the continuation or buffer it.
+    private func deliverError(_ error: OAuthError) {
+        if let continuation = self.continuation {
+            self.continuation = nil
+            continuation.resume(throwing: error)
+        } else {
+            bufferedError = error
+        }
     }
 
     /// Handle an incoming HTTP connection.
@@ -282,13 +314,12 @@ private actor CallbackServer {
         if let error = params["error"] {
             sendResponse(connection: connection, status: "200 OK",
                         body: "Authorization denied: \(error). You can close this tab.")
-            continuation?.resume(throwing: OAuthError.denied(error))
-            continuation = nil
+            deliverError(.denied(error))
         } else if let code = params["code"] {
+            print("🔑 Received authorization code via callback")
             sendResponse(connection: connection, status: "200 OK",
                         body: successHTML())
-            continuation?.resume(returning: code)
-            continuation = nil
+            deliverCode(code)
         } else {
             sendResponse(connection: connection, status: "400 Bad Request",
                         body: "Missing authorization code.")
