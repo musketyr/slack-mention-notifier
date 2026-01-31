@@ -34,6 +34,10 @@ mkdir -p "${BUNDLE_DIR}/Contents/Resources"
 # Copy binary
 cp dist/${BINARY_NAME} "${BUNDLE_DIR}/Contents/MacOS/${BINARY_NAME}"
 
+# Ad-hoc codesign with entitlements (required for TCC/EventKit on macOS 14+)
+echo "🔏 Codesigning with entitlements..."
+codesign --force --sign - --entitlements SlackMentionNotifier.entitlements "${BUNDLE_DIR}/Contents/MacOS/${BINARY_NAME}"
+
 # Copy and patch Info.plist
 sed "s/__VERSION__/${VERSION}/g" resources/Info.plist > "${BUNDLE_DIR}/Contents/Info.plist"
 
@@ -61,7 +65,9 @@ done
 iconutil -c icns "${ICONSET}" -o "${BUNDLE_DIR}/Contents/Resources/AppIcon.icns"
 rm -rf "${ICONSET}"
 
-echo "✅ App bundle created: ${BUNDLE_DIR}"
+# Codesign the whole bundle
+codesign --force --sign - --entitlements SlackMentionNotifier.entitlements --deep "${BUNDLE_DIR}"
+echo "✅ App bundle created and signed: ${BUNDLE_DIR}"
 
 # 3. Create DMG
 DMG_NAME="SlackMentionNotifier-${VERSION}.dmg"
