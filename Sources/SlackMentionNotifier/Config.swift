@@ -182,7 +182,7 @@ struct Config {
         if FileManager.default.fileExists(atPath: legacyPath.path),
            !FileManager.default.fileExists(atPath: envFilePath.path) {
             try? FileManager.default.moveItem(at: legacyPath, to: envFilePath)
-            print("📦 Migrated config from \(legacyPath.path) → \(envFilePath.path)")
+            Logger.log("📦 Migrated config from \(legacyPath.path) → \(envFilePath.path)")
         }
 
         let path = FileManager.default.fileExists(atPath: envFilePath.path) ? envFilePath : legacyPath

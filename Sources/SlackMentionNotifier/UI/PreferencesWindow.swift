@@ -611,7 +611,7 @@ class PreferencesWindow: NSWindow {
         let content = lines.joined(separator: "\n") + "\n"
         try? content.write(to: Config.envFilePath, atomically: true, encoding: .utf8)
 
-        print("💾 Preferences saved: list=\(reminderList), emoji=\(emoji), autoJoin=\(autoJoin), titleTemplate=\(titleTemplate)")
+        Logger.log("💾 Preferences saved: list=\(reminderList), emoji=\(emoji), autoJoin=\(autoJoin), titleTemplate=\(titleTemplate)")
         self.close()
 
         // Notify AppDelegate to reload config and reconnect

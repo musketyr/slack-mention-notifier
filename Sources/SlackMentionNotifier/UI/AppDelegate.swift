@@ -15,6 +15,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Hide dock icon (menu bar only)
         NSApp.setActivationPolicy(.accessory)
 
+        Logger.setup()
         config = Config.load()
 
         // Observe preference changes for live reload
@@ -35,7 +36,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         buildMenu()
 
-        print("📌 Menu bar item created")
+        Logger.log("📌 Menu bar item created")
 
         if config.isReady {
             Task { @MainActor in
@@ -46,14 +47,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             statusMenuItem.title = "○ Not connected"
             authMenuItem.title = "Sign in with Slack..."
             authMenuItem.isHidden = false
-            print("🔐 OAuth available — click the 🔔 menu bar icon → 'Sign in with Slack...'")
+            Logger.log("🔐 OAuth available — click the 🔔 menu bar icon → 'Sign in with Slack...'")
         } else if config.slackAppToken.isEmpty {
             statusMenuItem.title = "⚠ Not configured"
-            print("❌ No embedded secrets and no config file found.")
-            print("   Create ~/.config/slack-mention-notifier/config.env with your tokens.")
+            Logger.log("❌ No embedded secrets and no config file found.")
+            Logger.log("   Create ~/.config/slack-mention-notifier/config.env with your tokens.")
         } else {
             statusMenuItem.title = "⚠ Missing config"
-            print("❌ Bot token not configured. Click 'Sign in with Slack...' or set SLACK_BOT_TOKEN in config.")
+            Logger.log("❌ Bot token not configured. Click 'Sign in with Slack...' or set SLACK_BOT_TOKEN in config.")
         }
     }
 
@@ -70,6 +71,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         authMenuItem.isHidden = true
         menu.addItem(authMenuItem)
 
+        let copyLinkItem = NSMenuItem(title: "Copy Sign-in Link", action: #selector(copySignInLink), keyEquivalent: "")
+        copyLinkItem.target = self
+        menu.addItem(copyLinkItem)
+
         menu.addItem(NSMenuItem.separator())
 
         launchAtLoginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
@@ -80,6 +85,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let prefsItem = NSMenuItem(title: "Preferences...", action: #selector(openPreferences), keyEquivalent: ",")
         prefsItem.target = self
         menu.addItem(prefsItem)
+
+        let logsItem = NSMenuItem(title: "Show Logs...", action: #selector(showLogs), keyEquivalent: "")
+        logsItem.target = self
+        menu.addItem(logsItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -110,16 +119,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if isLaunchAtLoginEnabled {
                     try SMAppService.mainApp.unregister()
                     launchAtLoginItem.state = .off
-                    print("⏹  Launch at Login disabled")
+                    Logger.log("⏹  Launch at Login disabled")
                 } else {
                     try SMAppService.mainApp.register()
                     launchAtLoginItem.state = .on
-                    print("✅ Launch at Login enabled")
+                    Logger.log("✅ Launch at Login enabled")
                 }
             } catch {
-                print("⚠️  Failed to toggle Launch at Login: \(error)")
+                Logger.log("⚠️  Failed to toggle Launch at Login: \(error)")
             }
         }
+    }
+
+    // MARK: - Copy Sign-in Link
+
+    @objc private func copySignInLink() {
+        guard let clientId = config.slackClientId, !clientId.isEmpty else {
+            let alert = NSAlert()
+            alert.messageText = "OAuth Not Configured"
+            alert.informativeText = "Client ID is not set. Cannot generate sign-in link."
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
+
+        let scopes = OAuthFlow.requiredScopes.joined(separator: ",")
+        let redirectUri = OAuthFlow.redirectUri.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? OAuthFlow.redirectUri
+        let url = "https://slack.com/oauth/v2/authorize?client_id=\(clientId)&scope=\(scopes)&redirect_uri=\(redirectUri)"
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url, forType: .string)
+        Logger.log("📋 Sign-in link copied to clipboard")
+    }
+
+    // MARK: - Show Logs
+
+    @objc private func showLogs() {
+        Logger.flush()
+        NSWorkspace.shared.open(Logger.logFileURL)
     }
 
     // MARK: - Preferences
@@ -146,7 +184,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             // Reload config from disk
             config = Config.load()
-            print("🔄 Config reloaded after preferences change")
+            Logger.log("🔄 Config reloaded after preferences change")
 
             if config.isReady {
                 await MainActor.run {
@@ -184,13 +222,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
                 let saved = Config.saveOAuthResult(result)
                 let teamName = result.teamName ?? "workspace"
-                print("✅ Authenticated with \(teamName)")
-                print("   botToken: \(result.botToken.prefix(12))..., userId: \(result.authedUserId ?? "nil")")
-                print("   Keychain save: botToken=\(saved.botToken), userId=\(saved.userId), team=\(saved.teamName)")
+                Logger.log("✅ Authenticated with \(teamName)")
+                Logger.log("   botToken: \(result.botToken.prefix(12))..., userId: \(result.authedUserId ?? "nil")")
+                Logger.log("   Keychain save: botToken=\(saved.botToken), userId=\(saved.userId), team=\(saved.teamName)")
 
                 // Reload config with new tokens
                 config = Config.load()
-                print("   Config ready: \(config.isReady) (appToken=\(!config.slackAppToken.isEmpty), botToken=\(!config.slackBotToken.isEmpty), userId=\(!config.trackedUserId.isEmpty))")
+                Logger.log("   Config ready: \(config.isReady) (appToken=\(!config.slackAppToken.isEmpty), botToken=\(!config.slackBotToken.isEmpty), userId=\(!config.trackedUserId.isEmpty))")
 
                 if config.isReady {
                     await MainActor.run {
@@ -217,7 +255,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
             } catch {
-                print("❌ OAuth failed: \(error)")
+                Logger.log("❌ OAuth failed: \(error)")
                 await MainActor.run {
                     statusMenuItem.title = "⚠ Sign-in failed"
                     authMenuItem.isEnabled = true
@@ -251,7 +289,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             statusMenuItem.title = "○ Signed out"
         }
 
-        print("👋 Signed out, tokens cleared from Keychain")
+        Logger.log("👋 Signed out, tokens cleared from Keychain")
     }
 
     @objc private func quit() {

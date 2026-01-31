@@ -51,9 +51,9 @@ actor OAuthFlow {
             let s = CallbackServer()
             try await s.start(port: Self.callbackPort)
             server = s
-            print("🔐 OAuth callback server listening on port \(Self.callbackPort)")
+            Logger.log("🔐 OAuth callback server listening on port \(Self.callbackPort)")
         } catch {
-            print("⚠️  Could not start local server: \(error). Will use manual code entry.")
+            Logger.log("⚠️  Could not start local server: \(error). Will use manual code entry.")
         }
 
         // 2. Open Slack authorization page in browser
@@ -63,26 +63,26 @@ actor OAuthFlow {
             + "&scope=\(scopeString)"
             + "&redirect_uri=\(redirectUri.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!)"
 
-        print("🌐 Opening Slack authorization page...")
+        Logger.log("🌐 Opening Slack authorization page...")
         await openInBrowser(url: authUrl)
 
         // 3. Get the authorization code
         let code: String
         if let server = server {
-            print("⏳ Waiting for authorization callback...")
+            Logger.log("⏳ Waiting for authorization callback...")
             code = try await server.waitForCode()
             await server.stop()
         } else {
             // Fallback: user pastes code in terminal
-            print("📋 After authorizing, paste the code from the browser here and press Enter:")
+            Logger.log("📋 After authorizing, paste the code from the browser here and press Enter:")
             code = try await Self.readCodeFromStdin()
         }
 
-        print("✅ Authorization code received (\(code.prefix(8))...), exchanging for token...")
+        Logger.log("✅ Authorization code received (\(code.prefix(8))...), exchanging for token...")
 
         // 4. Exchange code for bot token
         let result = try await exchangeCode(code: code, redirectUri: redirectUri)
-        print("✅ Token exchange successful: bot=\(result.botToken.prefix(12))..., user=\(result.authedUserId ?? "nil"), team=\(result.teamName ?? "nil")")
+        Logger.log("✅ Token exchange successful: bot=\(result.botToken.prefix(12))..., user=\(result.authedUserId ?? "nil"), team=\(result.teamName ?? "nil")")
         return result
     }
 
@@ -302,7 +302,7 @@ private actor CallbackServer {
                         body: "Authorization denied: \(error). You can close this tab.")
             deliverError(.denied(error))
         } else if let code = params["code"] {
-            print("🔑 Received authorization code via callback")
+            Logger.log("🔑 Received authorization code via callback")
             sendResponse(connection: connection, status: "200 OK",
                         body: successHTML())
             deliverCode(code)

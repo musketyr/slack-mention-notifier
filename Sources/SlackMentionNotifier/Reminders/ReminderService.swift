@@ -20,12 +20,12 @@ class ReminderService {
                 hasAccess = try await store.requestAccess(to: .reminder)
             }
             if hasAccess {
-                print("✅ Reminders access granted")
+                Logger.log("✅ Reminders access granted")
             } else {
-                print("⚠️  Reminders access denied — reminders will be skipped")
+                Logger.log("⚠️  Reminders access denied — reminders will be skipped")
             }
         } catch {
-            print("⚠️  Reminders access error: \(error). Reminders will be skipped.")
+            Logger.log("⚠️  Reminders access error: \(error). Reminders will be skipped.")
         }
     }
 
@@ -40,9 +40,9 @@ class ReminderService {
 
         do {
             try store.save(reminder, commit: true)
-            print("✅ Reminder created: \(title)")
+            Logger.log("✅ Reminder created: \(title)")
         } catch {
-            print("⚠️  Failed to create reminder: \(error)")
+            Logger.log("⚠️  Failed to create reminder: \(error)")
         }
     }
 
@@ -54,7 +54,7 @@ class ReminderService {
             return match
         }
 
-        print("⚠️  Reminder list '\(listName)' not found, using default")
+        Logger.log("⚠️  Reminder list '\(listName)' not found, using default")
         return store.defaultCalendarForNewReminders() ?? calendars.first!
     }
 

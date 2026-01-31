@@ -29,7 +29,7 @@ actor SlackSocketMode {
             do {
                 try await connect()
             } catch {
-                print("⚠️  Socket Mode error: \(error). Reconnecting in \(reconnectDelay)s...")
+                Logger.log("⚠️  Socket Mode error: \(error). Reconnecting in \(reconnectDelay)s...")
                 try? await Task.sleep(nanoseconds: UInt64(reconnectDelay * 1_000_000_000))
                 reconnectDelay = min(reconnectDelay * 2, 30.0) // exponential backoff, max 30s
             }
@@ -44,7 +44,7 @@ actor SlackSocketMode {
     /// Request a WebSocket URL from Slack and connect.
     private func connect() async throws {
         let wsUrl = try await requestWebSocketUrl()
-        print("🔌 Connecting to Slack Socket Mode...")
+        Logger.log("🔌 Connecting to Slack Socket Mode...")
 
         let session = URLSession(configuration: .default)
         self.session = session
@@ -54,7 +54,7 @@ actor SlackSocketMode {
         task.resume()
 
         reconnectDelay = 1.0 // reset on successful connect
-        print("✅ Connected to Slack Socket Mode")
+        Logger.log("✅ Connected to Slack Socket Mode")
 
         // Read messages until disconnected
         while isRunning {
@@ -111,11 +111,11 @@ actor SlackSocketMode {
             }
 
         case "disconnect":
-            print("🔌 Slack requested disconnect, will reconnect...")
+            Logger.log("🔌 Slack requested disconnect, will reconnect...")
             webSocketTask?.cancel(with: .goingAway, reason: nil)
 
         case "hello":
-            print("👋 Slack Socket Mode handshake complete")
+            Logger.log("👋 Slack Socket Mode handshake complete")
             await onConnect?()
 
         default:

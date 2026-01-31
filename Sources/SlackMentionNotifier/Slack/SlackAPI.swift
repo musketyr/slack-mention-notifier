@@ -19,7 +19,7 @@ struct SlackAPI {
             let error = result["error"] as? String ?? "unknown"
             // "already_reacted" is fine
             if error != "already_reacted" {
-                print("⚠️  Failed to add reaction: \(error)")
+                Logger.log("⚠️  Failed to add reaction: \(error)")
             }
         }
     }
@@ -38,7 +38,7 @@ struct SlackAPI {
         let result = try await get("users.info", params: ["user": userId])
 
         if result["ok"] as? Bool != true {
-            print("⚠️  users.info failed: \(result["error"] as? String ?? "unknown")")
+            Logger.log("⚠️  users.info failed: \(result["error"] as? String ?? "unknown")")
             return (userId, nil)
         }
 
@@ -56,7 +56,7 @@ struct SlackAPI {
         let result = try await get("conversations.info", params: ["channel": channelId])
 
         if result["ok"] as? Bool != true {
-            print("⚠️  conversations.info failed: \(result["error"] as? String ?? "unknown")")
+            Logger.log("⚠️  conversations.info failed: \(result["error"] as? String ?? "unknown")")
             return nil
         }
 
@@ -80,7 +80,7 @@ struct SlackAPI {
             let result = try await get("users.conversations", params: params)
 
             if result["ok"] as? Bool != true {
-                print("⚠️  users.conversations failed: \(result["error"] as? String ?? "unknown")")
+                Logger.log("⚠️  users.conversations failed: \(result["error"] as? String ?? "unknown")")
                 break
             }
 
@@ -112,7 +112,7 @@ struct SlackAPI {
         if result["ok"] as? Bool != true {
             let error = result["error"] as? String ?? "unknown"
             if error != "not_in_channel" && error != "channel_not_found" {
-                print("⚠️  conversations.history(\(channel)) failed: \(error)")
+                Logger.log("⚠️  conversations.history(\(channel)) failed: \(error)")
             }
             return []
         }
@@ -124,7 +124,7 @@ struct SlackAPI {
     func listEmoji() async throws -> [String] {
         let result = try await get("emoji.list", params: [:])
         if result["ok"] as? Bool != true {
-            print("⚠️  emoji.list failed: \(result["error"] as? String ?? "unknown")")
+            Logger.log("⚠️  emoji.list failed: \(result["error"] as? String ?? "unknown")")
             return []
         }
         guard let emoji = result["emoji"] as? [String: Any] else { return [] }
@@ -149,7 +149,7 @@ struct SlackAPI {
             let result = try await get("conversations.list", params: params)
 
             if result["ok"] as? Bool != true {
-                print("⚠️  conversations.list failed: \(result["error"] as? String ?? "unknown")")
+                Logger.log("⚠️  conversations.list failed: \(result["error"] as? String ?? "unknown")")
                 break
             }
 
@@ -176,7 +176,7 @@ struct SlackAPI {
         if result["ok"] as? Bool != true {
             let error = result["error"] as? String ?? "unknown"
             if error != "already_in_channel" {
-                print("⚠️  Failed to join channel \(channelId): \(error)")
+                Logger.log("⚠️  Failed to join channel \(channelId): \(error)")
             }
         }
     }

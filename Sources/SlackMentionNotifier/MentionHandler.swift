@@ -32,7 +32,7 @@ actor MentionHandler {
             startPeriodicChannelScan()
         }
 
-        print("👂 Listening for mentions of <@\(config.trackedUserId)>...")
+        Logger.log("👂 Listening for mentions of <@\(config.trackedUserId)>...")
 
         socketMode = SlackSocketMode(appToken: config.slackAppToken,
                                      onEvent: { [weak self] event in await self?.handleEvent(event) },
@@ -65,17 +65,17 @@ actor MentionHandler {
             let toJoin = channels.filter { !$0.isMember }
 
             if toJoin.isEmpty {
-                print("✅ Already in all \(channels.count) public channels")
+                Logger.log("✅ Already in all \(channels.count) public channels")
                 return
             }
 
-            print("📢 Joining \(toJoin.count) public channel(s)...")
+            Logger.log("📢 Joining \(toJoin.count) public channel(s)...")
             for channel in toJoin {
                 try await slackAPI.joinChannel(channelId: channel.id)
             }
-            print("✅ Joined \(toJoin.count) channel(s), now in \(channels.count) total")
+            Logger.log("✅ Joined \(toJoin.count) channel(s), now in \(channels.count) total")
         } catch {
-            print("⚠️  Auto-join failed: \(error)")
+            Logger.log("⚠️  Auto-join failed: \(error)")
         }
     }
 
@@ -84,11 +84,11 @@ actor MentionHandler {
         guard !lastSeenTs.isEmpty else {
             // First run — no baseline, just start tracking from now
             updateLastSeen(ts: String(Date().timeIntervalSince1970))
-            print("📌 First run — tracking mentions from now")
+            Logger.log("📌 First run — tracking mentions from now")
             return
         }
 
-        print("🔄 Catching up on missed mentions since \(lastSeenTs)...")
+        Logger.log("🔄 Catching up on missed mentions since \(lastSeenTs)...")
 
         do {
             let channels = try await slackAPI.listConversations()
@@ -112,12 +112,12 @@ actor MentionHandler {
             }
 
             if catchUpCount > 0 {
-                print("✅ Caught up on \(catchUpCount) missed mention(s)")
+                Logger.log("✅ Caught up on \(catchUpCount) missed mention(s)")
             } else {
-                print("✅ No missed mentions")
+                Logger.log("✅ No missed mentions")
             }
         } catch {
-            print("⚠️  Catch-up failed: \(error)")
+            Logger.log("⚠️  Catch-up failed: \(error)")
         }
     }
 
@@ -136,13 +136,13 @@ actor MentionHandler {
 
     /// Shared processing for both real-time and catch-up events.
     private func processEvent(_ event: SlackEvent) async {
-        print("🔔 Mention detected in \(event.channel) from \(event.user)")
+        Logger.log("🔔 Mention detected in \(event.channel) from \(event.user)")
 
         // 1. React with 👀
         do {
             try await slackAPI.addReaction(channel: event.channel, timestamp: event.ts, emoji: config.reactionEmoji)
         } catch {
-            print("⚠️  Failed to react: \(error)")
+            Logger.log("⚠️  Failed to react: \(error)")
         }
 
         // 2. Fetch context
@@ -160,7 +160,7 @@ actor MentionHandler {
             channelName = try await channelInfoTask ?? event.channel
             permalink = try await permalinkTask
         } catch {
-            print("⚠️  Failed to fetch context: \(error)")
+            Logger.log("⚠️  Failed to fetch context: \(error)")
         }
 
         // 3. Resolve user mentions in message text
