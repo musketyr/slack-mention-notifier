@@ -25,7 +25,8 @@ A lightweight macOS menu bar app that monitors Slack mentions via **Socket Mode*
 ### 1. Create config file
 
 ```bash
-cat > ~/.slack-mention-notifier.env << 'EOF'
+mkdir -p ~/.config/slack-mention-notifier
+cat > ~/.config/slack-mention-notifier/config.env << 'EOF'
 SLACK_APP_TOKEN=xapp-1-...          # Socket Mode app-level token
 SLACK_BOT_TOKEN=xoxb-...            # Bot token
 SLACK_TRACKED_USER_ID=U...          # Your Slack user ID
@@ -34,6 +35,8 @@ SLACK_TRACKED_USER_ID=U...          # Your Slack user ID
 APPLE_REMINDERS_LIST=Připomínky
 EOF
 ```
+
+> **Note:** If you have a legacy `~/.slack-mention-notifier.env` file, it will be migrated automatically on first run.
 
 ### 2. Build and run
 

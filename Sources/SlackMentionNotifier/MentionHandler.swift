@@ -10,8 +10,7 @@ actor MentionHandler {
 
     /// File to persist last-seen timestamp across restarts.
     private static var tsFilePath: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".slack-mention-notifier-last-ts")
+        Config.stateDir.appendingPathComponent("last-seen-ts")
     }
 
     init(config: Config) {

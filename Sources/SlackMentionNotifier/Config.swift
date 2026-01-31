@@ -7,9 +7,26 @@ struct Config {
     let trackedUserId: String       // U... (Slack user ID to track mentions for)
     let reminderListName: String    // Apple Reminders list name (default: "Reminders")
 
-    /// Load configuration from environment variables, falling back to ~/.slack-mention-notifier.env
+    /// Base directory for all app data: ~/.config/slack-mention-notifier/
+    static let configDir: URL = {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/slack-mention-notifier")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }()
+
+    /// Path to the .env config file.
+    static var envFilePath: URL { configDir.appendingPathComponent("config.env") }
+
+    /// Path to persistent state (last-seen timestamp, etc.).
+    static var stateDir: URL {
+        let dir = configDir.appendingPathComponent("state")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// Load configuration from environment variables, falling back to config file.
     static func load() -> Config {
-        // Try loading .env file first
         loadDotEnv()
 
         guard let appToken = env("SLACK_APP_TOKEN") else {
@@ -35,12 +52,20 @@ struct Config {
         return value?.isEmpty == true ? nil : value
     }
 
-    /// Load key=value pairs from ~/.slack-mention-notifier.env
+    /// Load key=value pairs from config file, with fallback to legacy location.
     private static func loadDotEnv() {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let envFile = home.appendingPathComponent(".slack-mention-notifier.env")
+        let legacyPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".slack-mention-notifier.env")
 
-        guard let contents = try? String(contentsOf: envFile, encoding: .utf8) else { return }
+        // Migrate legacy config file if it exists and new one doesn't
+        if FileManager.default.fileExists(atPath: legacyPath.path),
+           !FileManager.default.fileExists(atPath: envFilePath.path) {
+            try? FileManager.default.moveItem(at: legacyPath, to: envFilePath)
+            print("📦 Migrated config from \(legacyPath.path) → \(envFilePath.path)")
+        }
+
+        let path = FileManager.default.fileExists(atPath: envFilePath.path) ? envFilePath : legacyPath
+        guard let contents = try? String(contentsOf: path, encoding: .utf8) else { return }
 
         for line in contents.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
