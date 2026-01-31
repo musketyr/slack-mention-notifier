@@ -16,6 +16,7 @@ actor OAuthFlow {
         "channels:join",
         "channels:read",
         "chat:write",
+        "emoji:read",
         "groups:history",
         "groups:read",
         "im:history",
@@ -77,10 +78,11 @@ actor OAuthFlow {
             code = try await Self.readCodeFromStdin()
         }
 
-        print("✅ Authorization code received, exchanging for token...")
+        print("✅ Authorization code received (\(code.prefix(8))...), exchanging for token...")
 
         // 4. Exchange code for bot token
         let result = try await exchangeCode(code: code, redirectUri: redirectUri)
+        print("✅ Token exchange successful: bot=\(result.botToken.prefix(12))..., user=\(result.authedUserId ?? "nil"), team=\(result.teamName ?? "nil")")
         return result
     }
 

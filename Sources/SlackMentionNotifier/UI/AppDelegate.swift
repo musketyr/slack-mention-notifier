@@ -182,12 +182,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let oauth = OAuthFlow(clientId: clientId, clientSecret: clientSecret)
                 let result = try await oauth.authenticate()
 
-                Config.saveOAuthResult(result)
+                let saved = Config.saveOAuthResult(result)
                 let teamName = result.teamName ?? "workspace"
                 print("✅ Authenticated with \(teamName)")
+                print("   botToken: \(result.botToken.prefix(12))..., userId: \(result.authedUserId ?? "nil")")
+                print("   Keychain save: botToken=\(saved.botToken), userId=\(saved.userId), team=\(saved.teamName)")
 
                 // Reload config with new tokens
                 config = Config.load()
+                print("   Config ready: \(config.isReady) (appToken=\(!config.slackAppToken.isEmpty), botToken=\(!config.slackBotToken.isEmpty), userId=\(!config.trackedUserId.isEmpty))")
 
                 if config.isReady {
                     await MainActor.run {
@@ -195,6 +198,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         authMenuItem.isHidden = true
                     }
                     await startHandler()
+                } else {
+                    await MainActor.run {
+                        statusMenuItem.title = "⚠ Incomplete config"
+                        authMenuItem.isEnabled = true
+
+                        var missing: [String] = []
+                        if config.slackAppToken.isEmpty { missing.append("App Token (SLACK_APP_TOKEN)") }
+                        if config.slackBotToken.isEmpty { missing.append("Bot Token") }
+                        if config.trackedUserId.isEmpty { missing.append("User ID") }
+
+                        let alert = NSAlert()
+                        alert.messageText = "Sign-in Incomplete"
+                        alert.informativeText = "OAuth succeeded but the app still needs: \(missing.joined(separator: ", ")). Check your config.env file."
+                        alert.alertStyle = .warning
+                        alert.addButton(withTitle: "OK")
+                        alert.runModal()
+                    }
                 }
             } catch {
                 print("❌ OAuth failed: \(error)")
@@ -206,6 +226,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     alert.messageText = "Sign-in Failed"
                     alert.informativeText = error.localizedDescription
                     alert.alertStyle = .warning
+                    alert.addButton(withTitle: "OK")
                     alert.runModal()
                 }
             }

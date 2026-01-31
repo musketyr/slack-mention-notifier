@@ -47,15 +47,19 @@ struct Config {
         return slackClientId != nil && slackClientSecret != nil && !slackClientId!.isEmpty
     }
 
-    /// Save OAuth tokens to Keychain.
-    static func saveOAuthResult(_ result: OAuthResult) {
-        _ = KeychainHelper.save(key: keychainBotToken, value: result.botToken)
+    /// Save OAuth tokens to Keychain. Returns success status for each field.
+    @discardableResult
+    static func saveOAuthResult(_ result: OAuthResult) -> (botToken: Bool, userId: Bool, teamName: Bool) {
+        let botSaved = KeychainHelper.save(key: keychainBotToken, value: result.botToken)
+        var userSaved = false
         if let userId = result.authedUserId {
-            _ = KeychainHelper.save(key: keychainAuthedUser, value: userId)
+            userSaved = KeychainHelper.save(key: keychainAuthedUser, value: userId)
         }
+        var teamSaved = false
         if let teamName = result.teamName {
-            _ = KeychainHelper.save(key: keychainTeamName, value: teamName)
+            teamSaved = KeychainHelper.save(key: keychainTeamName, value: teamName)
         }
+        return (botSaved, userSaved, teamSaved)
     }
 
     /// Clear stored OAuth tokens.
