@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 
 /// Menu bar app delegate — shows a status item and manages the Slack connection.
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -6,6 +7,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var mentionHandler: MentionHandler?
     private var statusMenuItem: NSMenuItem!
     private var authMenuItem: NSMenuItem!
+    private var launchAtLoginItem: NSMenuItem!
     private var config: Config!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -19,12 +21,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.image = NSImage(systemSymbolName: "bell.badge", accessibilityDescription: "Slack Mentions")
         statusItem.button?.image?.size = NSSize(width: 18, height: 18)
 
-        buildMenu()
-
         // Use text fallback if SF Symbol isn't available
         if statusItem.button?.image == nil {
             statusItem.button?.title = "🔔"
         }
+
+        buildMenu()
 
         print("📌 Menu bar item created")
 
@@ -38,10 +40,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             authMenuItem.title = "Sign in with Slack..."
             authMenuItem.isHidden = false
             print("🔐 OAuth available — click the 🔔 menu bar icon → 'Sign in with Slack...'")
-        
+        } else if config.slackAppToken.isEmpty {
+            statusMenuItem.title = "⚠ Not configured"
+            print("❌ No embedded secrets and no config file found.")
+            print("   Create ~/.config/slack-mention-notifier/config.env with your tokens.")
         } else {
             statusMenuItem.title = "⚠ Missing config"
-            print("❌ Bot token not configured. Set SLACK_BOT_TOKEN in config or add SLACK_CLIENT_ID + SLACK_CLIENT_SECRET for OAuth.")
+            print("❌ Bot token not configured. Click 'Sign in with Slack...' or set SLACK_BOT_TOKEN in config.")
         }
     }
 
@@ -60,6 +65,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        launchAtLoginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        launchAtLoginItem.target = self
+        launchAtLoginItem.state = isLaunchAtLoginEnabled ? .on : .off
+        menu.addItem(launchAtLoginItem)
+
+        menu.addItem(NSMenuItem.separator())
+
         let signOutItem = NSMenuItem(title: "Sign Out", action: #selector(signOut), keyEquivalent: "")
         signOutItem.target = self
         menu.addItem(signOutItem)
@@ -71,6 +83,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem.menu = menu
     }
+
+    // MARK: - Launch at Login
+
+    private var isLaunchAtLoginEnabled: Bool {
+        if #available(macOS 13.0, *) {
+            return SMAppService.mainApp.status == .enabled
+        }
+        return false
+    }
+
+    @objc private func toggleLaunchAtLogin() {
+        if #available(macOS 13.0, *) {
+            do {
+                if isLaunchAtLoginEnabled {
+                    try SMAppService.mainApp.unregister()
+                    launchAtLoginItem.state = .off
+                    print("⏹  Launch at Login disabled")
+                } else {
+                    try SMAppService.mainApp.register()
+                    launchAtLoginItem.state = .on
+                    print("✅ Launch at Login enabled")
+                }
+            } catch {
+                print("⚠️  Failed to toggle Launch at Login: \(error)")
+            }
+        }
+    }
+
+    // MARK: - Slack Connection
 
     private func startHandler() async {
         mentionHandler = MentionHandler(config: config)

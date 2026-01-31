@@ -1,5 +1,6 @@
-.PHONY: build run install uninstall clean
+.PHONY: build run install uninstall clean bundle
 
+VERSION ?= 0.1.0
 BINARY_NAME = SlackMentionNotifier
 BUILD_DIR = .build/release
 INSTALL_DIR = $(HOME)/.local/bin
@@ -11,6 +12,9 @@ build:
 
 run: build
 	$(BUILD_DIR)/$(BINARY_NAME)
+
+bundle:
+	./scripts/bundle-app.sh $(VERSION)
 
 install: build
 	@mkdir -p $(INSTALL_DIR)
@@ -38,4 +42,4 @@ uninstall: stop
 
 clean:
 	swift package clean
-	rm -rf .build
+	rm -rf .build dist

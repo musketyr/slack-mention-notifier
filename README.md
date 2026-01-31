@@ -8,10 +8,31 @@ A lightweight macOS menu bar app that monitors Slack mentions via **Socket Mode*
 
 **Zero server infrastructure.** Runs entirely on your Mac — connects directly to Slack via WebSocket.
 
+## Install
+
+### Download (easiest)
+
+1. Download the latest `.dmg` from [GitHub Releases](https://github.com/musketyr/slack-mention-notifier/releases)
+2. Open the DMG and drag **Slack Mention Notifier** to Applications
+3. Launch the app — click the 🔔 menu bar icon → **Sign in with Slack...**
+4. Enable **Launch at Login** from the menu bar
+
+> ⚠️ On first launch, macOS may warn about an unidentified developer. Right-click → Open to bypass, or run:
+> `xattr -cr /Applications/Slack\ Mention\ Notifier.app`
+
+### Build from source
+
+Requires **macOS 13+** with Xcode Command Line Tools.
+
+```bash
+git clone https://github.com/musketyr/slack-mention-notifier.git
+cd slack-mention-notifier
+make run
+```
+
 ## Prerequisites
 
-1. **macOS 13+** with Xcode Command Line Tools
-2. A **Slack App** with Socket Mode enabled (see [Slack App Setup](#slack-app-setup-details) below)
+A **Slack App** with Socket Mode enabled (see [Slack App Setup](#slack-app-setup-details) below)
 
 ## Setup
 

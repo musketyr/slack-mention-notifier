@@ -71,25 +71,33 @@ struct Config {
     static func load() -> Config {
         loadDotEnv()
 
-        guard let appToken = env("SLACK_APP_TOKEN") else {
-            fatalError("SLACK_APP_TOKEN is required (xapp-... Socket Mode token)")
-        }
+        // App token: env/config → embedded secret
+        let appToken = env("SLACK_APP_TOKEN") ?? nonEmpty(Secrets.slackAppToken)
 
-        // Bot token: prefer config/env, fall back to Keychain (OAuth)
+        // Bot token: env/config → Keychain (OAuth)
         let botToken = env("SLACK_BOT_TOKEN") ?? KeychainHelper.load(key: keychainBotToken)
 
-        // Tracked user: prefer config/env, fall back to OAuth authed user
+        // Tracked user: env/config → Keychain (OAuth authed user)
         let trackedUser = env("SLACK_TRACKED_USER_ID") ?? KeychainHelper.load(key: keychainAuthedUser)
 
+        // OAuth credentials: env/config → embedded secrets
+        let clientId = env("SLACK_CLIENT_ID") ?? nonEmpty(Secrets.slackClientId)
+        let clientSecret = env("SLACK_CLIENT_SECRET") ?? nonEmpty(Secrets.slackClientSecret)
+
         return Config(
-            slackAppToken: appToken,
+            slackAppToken: appToken ?? "",
             slackBotToken: botToken ?? "",
             trackedUserId: trackedUser ?? "",
             reminderListName: env("APPLE_REMINDERS_LIST") ?? "Reminders",
             autoJoinChannels: env("AUTO_JOIN_CHANNELS")?.lowercased() == "true",
-            slackClientId: env("SLACK_CLIENT_ID"),
-            slackClientSecret: env("SLACK_CLIENT_SECRET")
+            slackClientId: clientId,
+            slackClientSecret: clientSecret
         )
+    }
+
+    /// Returns nil for empty strings.
+    private static func nonEmpty(_ s: String) -> String? {
+        return s.isEmpty ? nil : s
     }
 
     /// Whether the config has enough info to start listening.
