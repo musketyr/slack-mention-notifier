@@ -202,8 +202,8 @@ private actor CallbackServer {
             }
         }
 
-        listener.newConnectionHandler = { [weak self] connection in
-            Task { await self?.handleConnection(connection) }
+        listener.newConnectionHandler = { connection in
+            Task { [weak self] in await self?.handleConnection(connection) }
         }
 
         listener.start(queue: DispatchQueue(label: "oauth-callback"))
@@ -269,8 +269,8 @@ private actor CallbackServer {
     private func handleConnection(_ connection: NWConnection) {
         connection.start(queue: DispatchQueue(label: "oauth-connection"))
 
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { [weak self] data, _, _, error in
-            Task { await self?.processRequest(data: data, connection: connection) }
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { data, _, _, error in
+            Task { [weak self] in await self?.processRequest(data: data, connection: connection) }
         }
     }
 
