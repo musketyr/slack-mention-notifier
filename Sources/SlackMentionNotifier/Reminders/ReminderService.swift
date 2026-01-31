@@ -2,10 +2,17 @@ import EventKit
 import Foundation
 
 /// Creates Apple Reminders via EventKit.
+///
+/// Uses a single shared EKEventStore for all operations. A fresh store
+/// may not see calendars immediately after authorization — the shared
+/// instance avoids this race by persisting across the app lifetime.
 class ReminderService {
-    private let store = EKEventStore()
     private let listName: String
     private var hasAccess = false
+
+    /// Single shared store for all EventKit operations.
+    private static let store = EKEventStore()
+    private static var storeHasAccess = false
 
     init(listName: String) {
         self.listName = listName
@@ -13,19 +20,12 @@ class ReminderService {
 
     /// Request access to Reminders (macOS will show a permission dialog on first use).
     func requestAccess() async {
-        do {
-            if #available(macOS 14.0, *) {
-                hasAccess = try await store.requestFullAccessToReminders()
-            } else {
-                hasAccess = try await store.requestAccess(to: .reminder)
-            }
-            if hasAccess {
-                Logger.log("✅ Reminders access granted")
-            } else {
-                Logger.log("⚠️  Reminders access denied — reminders will be skipped")
-            }
-        } catch {
-            Logger.log("⚠️  Reminders access error: \(error). Reminders will be skipped.")
+        let granted = await Self.ensureAccess()
+        hasAccess = granted
+        if granted {
+            Logger.log("✅ Reminders access granted")
+        } else {
+            Logger.log("⚠️  Reminders access denied — reminders will be skipped")
         }
     }
 
@@ -33,6 +33,7 @@ class ReminderService {
     func createReminder(title: String, notes: String?) async {
         guard hasAccess else { return }
 
+        let store = Self.store
         let reminder = EKReminder(eventStore: store)
         reminder.title = title
         reminder.notes = notes
@@ -48,6 +49,7 @@ class ReminderService {
 
     /// Find the target calendar by name, or fall back to the default reminders calendar.
     private func findOrDefaultCalendar() -> EKCalendar {
+        let store = Self.store
         let calendars = store.calendars(for: .reminder)
         let defaultCalendar = store.defaultCalendarForNewReminders()
 
@@ -88,29 +90,32 @@ class ReminderService {
         return fallback
     }
 
-    /// Shared store for listing calendars (persists across calls so calendars are available).
-    private static let sharedStore = EKEventStore()
-    private static var sharedStoreHasAccess = false
+    // MARK: - Shared Access (used by Preferences and instance)
 
-    /// Request access on the shared store (call once before using availableLists).
-    static func requestSharedAccess() async -> Bool {
-        if sharedStoreHasAccess { return true }
+    /// Ensure access on the shared store. Safe to call multiple times.
+    static func ensureAccess() async -> Bool {
+        if storeHasAccess { return true }
         do {
             let granted: Bool
             if #available(macOS 14.0, *) {
-                granted = try await sharedStore.requestFullAccessToReminders()
+                granted = try await store.requestFullAccessToReminders()
             } else {
-                granted = try await sharedStore.requestAccess(to: .reminder)
+                granted = try await store.requestAccess(to: .reminder)
             }
-            sharedStoreHasAccess = granted
+            storeHasAccess = granted
             return granted
         } catch {
             return false
         }
     }
 
+    /// Request access on the shared store (convenience alias for Preferences).
+    static func requestSharedAccess() async -> Bool {
+        return await ensureAccess()
+    }
+
     /// Get all available Reminders list names.
     static func availableLists() -> [String] {
-        return sharedStore.calendars(for: .reminder).map { $0.title }
+        return store.calendars(for: .reminder).map { $0.title }
     }
 }
