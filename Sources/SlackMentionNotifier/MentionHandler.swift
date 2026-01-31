@@ -20,6 +20,8 @@ actor MentionHandler {
         self.lastSeenTs = (try? String(contentsOf: Self.tsFilePath, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)) ?? ""
     }
 
+    private var channelScanTask: Task<Void, Never>?
+
     func start() async {
         // Request Reminders access first
         await reminderService.requestAccess()
@@ -27,6 +29,7 @@ actor MentionHandler {
         // Auto-join all public channels if configured
         if config.autoJoinChannels {
             await joinAllPublicChannels()
+            startPeriodicChannelScan()
         }
 
         print("👂 Listening for mentions of <@\(config.trackedUserId)>...")
@@ -39,7 +42,20 @@ actor MentionHandler {
     }
 
     func stop() async {
+        channelScanTask?.cancel()
+        channelScanTask = nil
         await socketMode?.stop()
+    }
+
+    /// Periodically scan for new public channels and join them (every hour).
+    private func startPeriodicChannelScan() {
+        channelScanTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 3600 * 1_000_000_000) // 1 hour
+                guard !Task.isCancelled else { break }
+                await self?.joinAllPublicChannels()
+            }
+        }
     }
 
     /// Join all public channels the bot isn't already a member of.

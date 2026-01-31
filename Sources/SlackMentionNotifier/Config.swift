@@ -70,32 +70,32 @@ struct Config {
     }
 
     /// Load configuration. Priorities:
-    /// 1. Environment variables / config file for app token, client ID/secret
+    /// 1. Environment variables → config file values (freshly read)
     /// 2. Keychain for bot token (from OAuth) — falls back to config file
-    /// 3. Config file for tracked user ID — falls back to Keychain authed user
+    /// 3. Embedded Secrets as final fallback
     static func load() -> Config {
-        loadDotEnv()
+        let file = loadConfigFile()
 
         // App token: env/config → embedded secret
-        let appToken = env("SLACK_APP_TOKEN") ?? nonEmpty(Secrets.slackAppToken)
+        let appToken = env("SLACK_APP_TOKEN", fileValues: file) ?? nonEmpty(Secrets.slackAppToken)
 
         // Bot token: env/config → Keychain (OAuth)
-        let botToken = env("SLACK_BOT_TOKEN") ?? KeychainHelper.load(key: keychainBotToken)
+        let botToken = env("SLACK_BOT_TOKEN", fileValues: file) ?? KeychainHelper.load(key: keychainBotToken)
 
         // Tracked user: env/config → Keychain (OAuth authed user)
-        let trackedUser = env("SLACK_TRACKED_USER_ID") ?? KeychainHelper.load(key: keychainAuthedUser)
+        let trackedUser = env("SLACK_TRACKED_USER_ID", fileValues: file) ?? KeychainHelper.load(key: keychainAuthedUser)
 
         // OAuth credentials: env/config → embedded secrets
-        let clientId = env("SLACK_CLIENT_ID") ?? nonEmpty(Secrets.slackClientId)
-        let clientSecret = env("SLACK_CLIENT_SECRET") ?? nonEmpty(Secrets.slackClientSecret)
+        let clientId = env("SLACK_CLIENT_ID", fileValues: file) ?? nonEmpty(Secrets.slackClientId)
+        let clientSecret = env("SLACK_CLIENT_SECRET", fileValues: file) ?? nonEmpty(Secrets.slackClientSecret)
 
         return Config(
             slackAppToken: appToken ?? "",
             slackBotToken: botToken ?? "",
             trackedUserId: trackedUser ?? "",
-            reminderListName: env("APPLE_REMINDERS_LIST") ?? "Reminders",
-            reactionEmoji: env("REACTION_EMOJI") ?? "eyes",
-            autoJoinChannels: env("AUTO_JOIN_CHANNELS")?.lowercased() == "true",
+            reminderListName: env("APPLE_REMINDERS_LIST", fileValues: file) ?? "Reminders",
+            reactionEmoji: env("REACTION_EMOJI", fileValues: file) ?? "eyes",
+            autoJoinChannels: env("AUTO_JOIN_CHANNELS", fileValues: file)?.lowercased() == "true",
             slackClientId: clientId,
             slackClientSecret: clientSecret
         )
@@ -111,13 +111,21 @@ struct Config {
         return !slackAppToken.isEmpty && !slackBotToken.isEmpty && !trackedUserId.isEmpty
     }
 
-    private static func env(_ key: String) -> String? {
-        let value = ProcessInfo.processInfo.environment[key]
-        return value?.isEmpty == true ? nil : value
+    /// Read a config value. Priority: real env vars → config file → nil.
+    private static func env(_ key: String, fileValues: [String: String]) -> String? {
+        // 1. Real environment variables (set before process started)
+        if let value = ProcessInfo.processInfo.environment[key], !value.isEmpty {
+            return value
+        }
+        // 2. Config file values (freshly read each time)
+        if let value = fileValues[key], !value.isEmpty {
+            return value
+        }
+        return nil
     }
 
-    /// Load key=value pairs from config file, with fallback to legacy location.
-    private static func loadDotEnv() {
+    /// Parse the config file and return key-value pairs.
+    private static func loadConfigFile() -> [String: String] {
         let legacyPath = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".slack-mention-notifier.env")
 
@@ -129,8 +137,9 @@ struct Config {
         }
 
         let path = FileManager.default.fileExists(atPath: envFilePath.path) ? envFilePath : legacyPath
-        guard let contents = try? String(contentsOf: path, encoding: .utf8) else { return }
+        guard let contents = try? String(contentsOf: path, encoding: .utf8) else { return [:] }
 
+        var values: [String: String] = [:]
         for line in contents.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else { continue }
@@ -147,7 +156,8 @@ struct Config {
                 value = String(value.dropFirst().dropLast())
             }
 
-            setenv(key, value, 0) // 0 = don't overwrite existing env vars
+            values[key] = value
         }
+        return values
     }
 }
