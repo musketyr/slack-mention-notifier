@@ -3,7 +3,6 @@
 A lightweight macOS menu bar app that monitors Slack mentions via **Socket Mode** (WebSocket) and:
 
 - 👀 Reacts to the message
-- 📱 Sends a Telegram notification
 - ✅ Creates an Apple Reminder
 - 🔔 Shows a macOS notification
 
@@ -31,11 +30,7 @@ SLACK_APP_TOKEN=xapp-1-...          # Socket Mode app-level token
 SLACK_BOT_TOKEN=xoxb-...            # Bot token
 SLACK_TRACKED_USER_ID=U...          # Your Slack user ID
 
-# Optional: Telegram notifications
-TELEGRAM_BOT_TOKEN=...
-TELEGRAM_CHAT_ID=...
-
-# Optional: Target Apple Reminders list (default: "Reminders")
+# Target Apple Reminders list (default: "Reminders")
 APPLE_REMINDERS_LIST=Připomínky
 EOF
 ```
@@ -98,14 +93,14 @@ Slack (WebSocket) ──Socket Mode──▶ SlackSocketMode
                                         │
                                         ▼
                                   MentionHandler
-                                   │   │   │
-                          ┌────────┘   │   └────────┐
-                          ▼            ▼             ▼
-                     SlackAPI    TelegramNotifier  ReminderService
-                   (react 👀)   (send message)    (EventKit VTODO)
-                                                       │
-                                                       ▼
-                                                 Apple Reminders
+                                     │     │
+                                ┌────┘     └────┐
+                                ▼               ▼
+                           SlackAPI      ReminderService
+                          (react 👀)     (EventKit)
+                                              │
+                                              ▼
+                                        Apple Reminders
 ```
 
 ## Slack App Setup Details

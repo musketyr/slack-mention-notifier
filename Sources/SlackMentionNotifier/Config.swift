@@ -5,13 +5,7 @@ struct Config {
     let slackAppToken: String       // xapp-... (Socket Mode token)
     let slackBotToken: String       // xoxb-... (Bot token for API calls)
     let trackedUserId: String       // U... (Slack user ID to track mentions for)
-    let telegramBotToken: String?   // Optional: Telegram bot token
-    let telegramChatId: String?     // Optional: Telegram chat ID
     let reminderListName: String    // Apple Reminders list name (default: "Reminders")
-
-    var isTelegramEnabled: Bool {
-        telegramBotToken != nil && telegramChatId != nil
-    }
 
     /// Load configuration from environment variables, falling back to ~/.slack-mention-notifier.env
     static func load() -> Config {
@@ -32,8 +26,6 @@ struct Config {
             slackAppToken: appToken,
             slackBotToken: botToken,
             trackedUserId: userId,
-            telegramBotToken: env("TELEGRAM_BOT_TOKEN"),
-            telegramChatId: env("TELEGRAM_CHAT_ID"),
             reminderListName: env("APPLE_REMINDERS_LIST") ?? "Reminders"
         )
     }

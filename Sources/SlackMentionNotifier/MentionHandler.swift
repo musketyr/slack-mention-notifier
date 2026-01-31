@@ -5,23 +5,12 @@ actor MentionHandler {
     private let config: Config
     private let slackAPI: SlackAPI
     private let reminderService: ReminderService
-    private let telegram: TelegramNotifier?
     private var socketMode: SlackSocketMode?
 
     init(config: Config) {
         self.config = config
         self.slackAPI = SlackAPI(botToken: config.slackBotToken)
         self.reminderService = ReminderService(listName: config.reminderListName)
-
-        if config.isTelegramEnabled {
-            self.telegram = TelegramNotifier(
-                botToken: config.telegramBotToken!,
-                chatId: config.telegramChatId!
-            )
-        } else {
-            self.telegram = nil
-            print("ℹ️  Telegram notifications disabled (no TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID)")
-        }
     }
 
     func start() async {
@@ -71,19 +60,7 @@ actor MentionHandler {
             print("⚠️  Failed to fetch context: \(error)")
         }
 
-        // 3. Send Telegram notification
-        if let telegram = telegram {
-            let message = buildTelegramMessage(
-                sender: senderName,
-                channel: channelName,
-                text: event.text,
-                permalink: permalink
-            )
-            await telegram.send(message)
-            print("✅ Telegram notification sent")
-        }
-
-        // 4. Create Apple Reminder
+        // 3. Create Apple Reminder
         let title = "Slack: \(senderName) in #\(channelName)"
         let notes = permalink != nil
             ? "\(event.text)\n\n\(permalink!)"
@@ -91,23 +68,8 @@ actor MentionHandler {
 
         await reminderService.createReminder(title: title, notes: notes)
 
-        // 5. macOS notification
+        // 4. macOS notification
         await sendLocalNotification(title: "Slack mention", body: "\(senderName) in #\(channelName)")
-    }
-
-    private func buildTelegramMessage(sender: String, channel: String, text: String, permalink: String?) -> String {
-        var msg = "💬 <b>\(escapeHTML(sender))</b> mentioned you in <b>#\(escapeHTML(channel))</b>\n\n"
-        msg += escapeHTML(text)
-        if let link = permalink {
-            msg += "\n\n<a href=\"\(link)\">View in Slack</a>"
-        }
-        return msg
-    }
-
-    private func escapeHTML(_ text: String) -> String {
-        text.replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
     }
 
     private func sendLocalNotification(title: String, body: String) async {
