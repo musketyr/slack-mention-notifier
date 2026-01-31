@@ -41,12 +41,18 @@ actor OAuthFlow {
     /// Run the full OAuth flow: start local server → open browser → wait for code → exchange for token.
     /// Returns (botToken, teamName, authedUserId).
     func authenticate() async throws -> OAuthResult {
-        // 1. Start local callback server
-        let server = CallbackServer()
-        try await server.start(port: Self.callbackPort)
         let redirectUri = Self.redirectUri
 
-        print("🔐 OAuth callback server listening on port \(Self.callbackPort)")
+        // 1. Try to start local callback server (best UX)
+        var server: CallbackServer?
+        do {
+            let s = CallbackServer()
+            try await s.start(port: Self.callbackPort)
+            server = s
+            print("🔐 OAuth callback server listening on port \(Self.callbackPort)")
+        } catch {
+            print("⚠️  Could not start local server: \(error). Will use manual code entry.")
+        }
 
         // 2. Open Slack authorization page in browser
         let scopeString = scopes.joined(separator: ",")
@@ -58,15 +64,53 @@ actor OAuthFlow {
         print("🌐 Opening Slack authorization page...")
         await openInBrowser(url: authUrl)
 
-        // 3. Wait for the callback with the authorization code
-        let code = try await server.waitForCode()
-        await server.stop()
+        // 3. Get the authorization code
+        let code: String
+        if let server = server {
+            // Auto mode: wait for the callback redirect
+            print("⏳ Waiting for authorization (or paste the code here and press Enter)...")
+
+            // Race: either the server gets the callback or user pastes code in terminal
+            code = try await withThrowingTaskGroup(of: String.self) { group in
+                group.addTask {
+                    try await server.waitForCode()
+                }
+                group.addTask {
+                    try await Self.readCodeFromStdin()
+                }
+
+                guard let first = try await group.next() else {
+                    throw OAuthError.timeout
+                }
+                group.cancelAll()
+                return first
+            }
+
+            await server.stop()
+        } else {
+            // Manual mode: user pastes code in terminal
+            print("📋 After authorizing, paste the code from the browser here and press Enter:")
+            code = try await Self.readCodeFromStdin()
+        }
 
         print("✅ Authorization code received, exchanging for token...")
 
         // 4. Exchange code for bot token
         let result = try await exchangeCode(code: code, redirectUri: redirectUri)
         return result
+    }
+
+    /// Read an authorization code from stdin (for manual paste fallback).
+    private static func readCodeFromStdin() async throws -> String {
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global().async {
+                guard let line = readLine(strippingNewline: true), !line.isEmpty else {
+                    continuation.resume(throwing: OAuthError.timeout)
+                    return
+                }
+                continuation.resume(returning: line)
+            }
+        }
     }
 
     /// Exchange the authorization code for a bot token.
