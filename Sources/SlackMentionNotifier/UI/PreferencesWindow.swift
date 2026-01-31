@@ -105,18 +105,18 @@ class PreferencesWindow: NSWindow {
         autoJoinCheckbox.frame = NSRect(x: fieldX, y: y, width: fieldWidth, height: 22)
         contentView.addSubview(autoJoinCheckbox)
 
-        y -= 36
+        y -= 40
 
         // --- Section: Reminder Templates ---
         let templateHeader = makeSectionHeader("Reminder Templates", x: margin, y: y)
         contentView.addSubview(templateHeader)
-        y -= 6
-        let templateHint = NSTextField(labelWithString: "Placeholders: {sender}  {channel}  {message}  {permalink}  {date}")
+        y -= 22
+        let templateHint = NSTextField(labelWithString: "Use \\n for newlines. Placeholders: {sender} {channel} {message} {permalink} {date}")
         templateHint.font = NSFont.systemFont(ofSize: 11)
-        templateHint.textColor = .secondaryLabelColor
-        templateHint.frame = NSRect(x: margin, y: y - 2, width: contentView.bounds.width - margin * 2, height: 16)
+        templateHint.textColor = .tertiaryLabelColor
+        templateHint.frame = NSRect(x: margin, y: y, width: contentView.bounds.width - margin * 2, height: 16)
         contentView.addSubview(templateHint)
-        y -= 26
+        y -= 30
 
         // --- Title Template ---
         let titleLabel = makeLabel("Title:", x: margin, y: y)
@@ -126,7 +126,7 @@ class PreferencesWindow: NSWindow {
         titleTemplateCombo.isEditable = true
         titleTemplateCombo.completes = false
         titleTemplateCombo.numberOfVisibleItems = 6
-        titleTemplateCombo.addItems(withObjectValues: Config.titlePresets.map { "\($0.name): \($0.template)" })
+        titleTemplateCombo.addItems(withObjectValues: Config.titlePresets.map { $0.template })
         titleTemplateCombo.target = self
         titleTemplateCombo.action = #selector(templateChanged)
         contentView.addSubview(titleTemplateCombo)
@@ -141,30 +141,30 @@ class PreferencesWindow: NSWindow {
         notesTemplateCombo.isEditable = true
         notesTemplateCombo.completes = false
         notesTemplateCombo.numberOfVisibleItems = 6
-        notesTemplateCombo.addItems(withObjectValues: Config.notesPresets.map { "\($0.name): \($0.template)" })
+        notesTemplateCombo.addItems(withObjectValues: Config.notesPresets.map { $0.template })
         notesTemplateCombo.target = self
         notesTemplateCombo.action = #selector(templateChanged)
         contentView.addSubview(notesTemplateCombo)
 
-        y -= 28
+        y -= 30
 
         // --- Preview ---
-        let previewHeader = NSTextField(labelWithString: "Preview:")
-        previewHeader.font = NSFont.systemFont(ofSize: 11, weight: .medium)
-        previewHeader.textColor = .secondaryLabelColor
-        previewHeader.frame = NSRect(x: fieldX, y: y, width: fieldWidth, height: 14)
-        contentView.addSubview(previewHeader)
+        let previewBox = NSBox(frame: NSRect(x: fieldX - 8, y: y - 64, width: fieldWidth + 16, height: 80))
+        previewBox.boxType = .custom
+        previewBox.borderColor = .separatorColor
+        previewBox.borderWidth = 1
+        previewBox.cornerRadius = 6
+        previewBox.fillColor = NSColor.controlBackgroundColor.withAlphaComponent(0.5)
+        previewBox.titlePosition = .noTitle
+        contentView.addSubview(previewBox)
 
-        y -= 48
         previewLabel = NSTextField(wrappingLabelWithString: "")
         previewLabel.font = NSFont.systemFont(ofSize: 11)
         previewLabel.textColor = .labelColor
-        previewLabel.frame = NSRect(x: fieldX, y: y, width: fieldWidth, height: 48)
-        previewLabel.maximumNumberOfLines = 4
+        previewLabel.frame = NSRect(x: fieldX, y: y - 60, width: fieldWidth, height: 72)
+        previewLabel.maximumNumberOfLines = 6
         previewLabel.lineBreakMode = .byTruncatingTail
         contentView.addSubview(previewLabel)
-
-        y -= 16
 
         // --- Buttons ---
         let saveButton = NSButton(title: "Save", target: self, action: #selector(savePreferences))
@@ -260,8 +260,8 @@ class PreferencesWindow: NSWindow {
     }
 
     private func updatePreview() {
-        let titleTemplate = extractTemplate(from: titleTemplateCombo.stringValue)
-        let notesTemplate = extractTemplate(from: notesTemplateCombo.stringValue)
+        let titleTemplate = titleTemplateCombo.stringValue
+        let notesTemplate = notesTemplateCombo.stringValue
 
         let title = Config.applyTemplate(titleTemplate,
                                           sender: "Jane Doe", channel: "general",
@@ -273,19 +273,6 @@ class PreferencesWindow: NSWindow {
                                           permalink: "https://slack.com/archives/C01/p1234")
 
         previewLabel.stringValue = "📌 \(title)\n📝 \(notes)"
-    }
-
-    /// Extract the template string from a combo box value.
-    /// If user selected a preset ("Name: template"), extract the template part.
-    /// If user typed a custom value, use it as-is.
-    private func extractTemplate(from value: String) -> String {
-        // Check if it matches a preset format "Name: template"
-        for preset in Config.titlePresets + Config.notesPresets {
-            if value == "\(preset.name): \(preset.template)" {
-                return preset.template
-            }
-        }
-        return value
     }
 
     /// Load custom emoji from Slack (call after sign-in).
@@ -320,8 +307,8 @@ class PreferencesWindow: NSWindow {
         let reminderList = reminderListPopup.titleOfSelectedItem ?? "Reminders"
         var emoji = emojiField.stringValue.trimmingCharacters(in: .whitespaces)
         let autoJoin = autoJoinCheckbox.state == .on
-        let titleTemplate = extractTemplate(from: titleTemplateCombo.stringValue)
-        let notesTemplate = extractTemplate(from: notesTemplateCombo.stringValue)
+        let titleTemplate = titleTemplateCombo.stringValue.trimmingCharacters(in: .whitespaces)
+        let notesTemplate = notesTemplateCombo.stringValue.trimmingCharacters(in: .whitespaces)
 
         // Strip glyph prefix if user selected from dropdown (e.g. "👀  eyes" → "eyes", "✦  custom" → "custom")
         if let spaceRange = emoji.range(of: "  ") {

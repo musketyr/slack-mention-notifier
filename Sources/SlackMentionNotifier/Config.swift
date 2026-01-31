@@ -15,9 +15,9 @@ struct Config {
     let slackClientId: String?
     let slackClientSecret: String?
 
-    /// Default templates for reminders.
+    /// Default templates for reminders. Use literal `\n` for newlines in storage/UI.
     static let defaultTitleTemplate = "Slack: {sender} in #{channel}"
-    static let defaultNotesTemplate = "{message}\n\n{permalink}"
+    static let defaultNotesTemplate = #"{message}\n\n{permalink}"#
 
     /// Built-in title template presets.
     static let titlePresets: [(name: String, template: String)] = [
@@ -29,13 +29,14 @@ struct Config {
 
     /// Built-in notes template presets.
     static let notesPresets: [(name: String, template: String)] = [
-        ("Default", "{message}\n\n{permalink}"),
-        ("Structured", "From: {sender}\nChannel: #{channel}\nDate: {date}\n\n{message}\n\n{permalink}"),
-        ("Compact", "{message}\n— {sender} in #{channel}\n{permalink}"),
+        ("Default", #"{message}\n\n{permalink}"#),
+        ("Structured", #"From: {sender}\nChannel: #{channel}\nDate: {date}\n\n{message}\n\n{permalink}"#),
+        ("Compact", #"{message}\n— {sender} in #{channel}\n{permalink}"#),
         ("Link only", "{permalink}"),
     ]
 
     /// Apply a template string with the given values.
+    /// Templates use literal `\n` for newlines (stored as text, converted here).
     static func applyTemplate(_ template: String, sender: String, channel: String,
                                message: String, permalink: String?, date: Date = Date()) -> String {
         let formatter = DateFormatter()
@@ -48,9 +49,13 @@ struct Config {
         result = result.replacingOccurrences(of: "{message}", with: message)
         result = result.replacingOccurrences(of: "{permalink}", with: permalink ?? "")
         result = result.replacingOccurrences(of: "{date}", with: formatter.string(from: date))
-        // Clean up double newlines if permalink was nil
+        // Convert literal \n to actual newlines
+        result = result.replacingOccurrences(of: "\\n", with: "\n")
+        // Clean up excessive newlines if permalink was nil
         if permalink == nil {
-            result = result.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+            while result.contains("\n\n\n") {
+                result = result.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+            }
         }
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
