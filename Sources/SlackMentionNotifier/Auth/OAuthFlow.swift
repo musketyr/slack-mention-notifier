@@ -36,7 +36,7 @@ actor OAuthFlow {
 
     /// The redirect URI registered in the Slack app (GitHub Pages).
     /// This page redirects to http://localhost:17380/slack/callback with the code.
-    static let redirectUri = "https://musketyr.github.io/slack-mention-notifier/callback/"
+    static let redirectUri = "https://vladimir.orany.cz/slack-mention-notifier/callback/"
 
     /// Run the full OAuth flow: start local server → open browser → wait for code → exchange for token.
     /// Returns (botToken, teamName, authedUserId).
