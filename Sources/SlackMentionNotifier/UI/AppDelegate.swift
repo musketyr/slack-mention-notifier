@@ -17,6 +17,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         config = Config.load()
 
+        // Observe preference changes for live reload
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handlePreferencesChanged),
+            name: .preferencesDidChange, object: nil
+        )
+
         // Create menu bar icon
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = NSImage(systemSymbolName: "bell.badge", accessibilityDescription: "Slack Mentions")
@@ -128,6 +134,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         preferencesWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // MARK: - Preferences Reload
+
+    @objc private func handlePreferencesChanged() {
+        Task {
+            // Stop existing handler
+            await mentionHandler?.stop()
+            mentionHandler = nil
+
+            // Reload config from disk
+            config = Config.load()
+            print("🔄 Config reloaded after preferences change")
+
+            if config.isReady {
+                await MainActor.run {
+                    statusMenuItem.title = "● Reconnecting..."
+                }
+                await startHandler()
+            }
+        }
     }
 
     // MARK: - Slack Connection

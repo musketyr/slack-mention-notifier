@@ -1,4 +1,10 @@
 import AppKit
+import EventKit
+
+extension Notification.Name {
+    /// Posted when the user saves preferences; AppDelegate observes this to reload.
+    static let preferencesDidChange = Notification.Name("PreferencesDidChange")
+}
 
 /// Preferences window for configuring the app.
 class PreferencesWindow: NSWindow {
@@ -6,20 +12,24 @@ class PreferencesWindow: NSWindow {
     private var emojiField: NSComboBox!
     private var autoJoinCheckbox: NSButton!
     private var customEmojis: [String] = []
+    private var loadingSpinner: NSProgressIndicator!
 
-    /// Common standard Slack emoji names.
-    private static let standardEmojis = [
-        "eyes", "white_check_mark", "heavy_check_mark", "thumbsup", "thumbsdown",
-        "raised_hands", "pray", "wave", "bell", "bookmark",
-        "bulb", "dart", "memo", "pushpin", "round_pushpin",
-        "star", "sparkles", "fire", "heart", "100",
-        "ok_hand", "muscle", "brain", "mag", "hourglass",
-        "rotating_light", "warning", "speech_balloon", "thought_balloon", "inbox_tray"
+    /// Common standard Slack emoji names with their Unicode glyphs.
+    private static let standardEmojis: [(name: String, glyph: String)] = [
+        ("eyes", "👀"), ("white_check_mark", "✅"), ("heavy_check_mark", "✔️"),
+        ("thumbsup", "👍"), ("thumbsdown", "👎"), ("raised_hands", "🙌"),
+        ("pray", "🙏"), ("wave", "👋"), ("bell", "🔔"), ("bookmark", "🔖"),
+        ("bulb", "💡"), ("dart", "🎯"), ("memo", "📝"), ("pushpin", "📌"),
+        ("round_pushpin", "📍"), ("star", "⭐"), ("sparkles", "✨"), ("fire", "🔥"),
+        ("heart", "❤️"), ("100", "💯"), ("ok_hand", "👌"), ("muscle", "💪"),
+        ("brain", "🧠"), ("mag", "🔍"), ("hourglass", "⏳"), ("rotating_light", "🚨"),
+        ("warning", "⚠️"), ("speech_balloon", "💬"), ("thought_balloon", "💭"),
+        ("inbox_tray", "📥")
     ]
 
     init() {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 280),
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 280),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -30,6 +40,7 @@ class PreferencesWindow: NSWindow {
 
         setupUI()
         loadCurrentValues()
+        requestRemindersAccessIfNeeded()
     }
 
     private func setupUI() {
@@ -48,12 +59,7 @@ class PreferencesWindow: NSWindow {
 
         reminderListPopup = NSPopUpButton(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26))
         reminderListPopup.removeAllItems()
-        let lists = ReminderService.availableLists()
-        if lists.isEmpty {
-            reminderListPopup.addItem(withTitle: "Reminders")
-        } else {
-            reminderListPopup.addItems(withTitles: lists)
-        }
+        populateReminderLists()
         contentView.addSubview(reminderListPopup)
 
         y -= 40
@@ -66,8 +72,16 @@ class PreferencesWindow: NSWindow {
         emojiField.isEditable = true
         emojiField.completes = true
         emojiField.numberOfVisibleItems = 12
-        emojiField.addItems(withObjectValues: Self.standardEmojis)
+        populateStandardEmoji()
         contentView.addSubview(emojiField)
+
+        // Spinner for loading custom emoji
+        loadingSpinner = NSProgressIndicator()
+        loadingSpinner.style = .spinning
+        loadingSpinner.controlSize = .small
+        loadingSpinner.frame = NSRect(x: fieldX + fieldWidth + 4, y: y, width: 16, height: 16)
+        loadingSpinner.isHidden = true
+        contentView.addSubview(loadingSpinner)
 
         y -= 24
         let emojiHint = NSTextField(labelWithString: "Slack emoji name without colons (e.g. eyes, thumbsup)")
@@ -99,6 +113,44 @@ class PreferencesWindow: NSWindow {
         contentView.addSubview(cancelButton)
     }
 
+    private func populateReminderLists() {
+        reminderListPopup.removeAllItems()
+        let lists = ReminderService.availableLists()
+        if lists.isEmpty {
+            reminderListPopup.addItem(withTitle: "Reminders")
+        } else {
+            reminderListPopup.addItems(withTitles: lists)
+        }
+    }
+
+    private func populateStandardEmoji() {
+        emojiField.removeAllItems()
+        let items = Self.standardEmojis.map { "\($0.glyph)  \($0.name)" }
+        emojiField.addItems(withObjectValues: items)
+    }
+
+    /// Request Reminders access so the list dropdown is populated even before the handler starts.
+    private func requestRemindersAccessIfNeeded() {
+        let store = EKEventStore()
+        Task {
+            let granted: Bool
+            if #available(macOS 14.0, *) {
+                granted = (try? await store.requestFullAccessToReminders()) ?? false
+            } else {
+                granted = (try? await store.requestAccess(to: .reminder)) ?? false
+            }
+            if granted {
+                await MainActor.run {
+                    let config = Config.load()
+                    populateReminderLists()
+                    if reminderListPopup.itemTitles.contains(config.reminderListName) {
+                        reminderListPopup.selectItem(withTitle: config.reminderListName)
+                    }
+                }
+            }
+        }
+    }
+
     private func makeLabel(_ text: String, x: CGFloat, y: CGFloat) -> NSTextField {
         let label = NSTextField(labelWithString: text)
         label.font = NSFont.systemFont(ofSize: 13, weight: .medium)
@@ -124,16 +176,27 @@ class PreferencesWindow: NSWindow {
 
     /// Load custom emoji from Slack (call after sign-in).
     func loadCustomEmoji(botToken: String) {
+        loadingSpinner.isHidden = false
+        loadingSpinner.startAnimation(nil)
+
         Task {
             let api = SlackAPI(botToken: botToken)
             let custom = try? await api.listEmoji()
-            if let custom = custom, !custom.isEmpty {
-                await MainActor.run {
+            await MainActor.run {
+                loadingSpinner.stopAnimation(nil)
+                loadingSpinner.isHidden = true
+
+                if let custom = custom, !custom.isEmpty {
                     self.customEmojis = custom
-                    // Add custom emoji at the top of the combo box
-                    let all = custom + Self.standardEmojis
+                    // Save the current value before rebuilding
+                    let currentValue = self.emojiField.stringValue
                     self.emojiField.removeAllItems()
-                    self.emojiField.addItems(withObjectValues: all)
+                    // Custom emoji first (prefixed with ✦ to distinguish)
+                    let customItems = custom.map { "✦  \($0)" }
+                    let standardItems = Self.standardEmojis.map { "\($0.glyph)  \($0.name)" }
+                    self.emojiField.addItems(withObjectValues: customItems + standardItems)
+                    // Restore the field value
+                    self.emojiField.stringValue = currentValue
                 }
             }
         }
@@ -141,8 +204,13 @@ class PreferencesWindow: NSWindow {
 
     @objc private func savePreferences() {
         let reminderList = reminderListPopup.titleOfSelectedItem ?? "Reminders"
-        let emoji = emojiField.stringValue.trimmingCharacters(in: .whitespaces)
+        var emoji = emojiField.stringValue.trimmingCharacters(in: .whitespaces)
         let autoJoin = autoJoinCheckbox.state == .on
+
+        // Strip glyph prefix if user selected from dropdown (e.g. "👀  eyes" → "eyes", "✦  custom" → "custom")
+        if let spaceRange = emoji.range(of: "  ") {
+            emoji = String(emoji[spaceRange.upperBound...]).trimmingCharacters(in: .whitespaces)
+        }
 
         // Write to config file
         var lines: [String] = []
@@ -177,16 +245,11 @@ class PreferencesWindow: NSWindow {
         let content = lines.joined(separator: "\n") + "\n"
         try? content.write(to: Config.envFilePath, atomically: true, encoding: .utf8)
 
-        print("💾 Preferences saved")
+        print("💾 Preferences saved: list=\(reminderList), emoji=\(emoji), autoJoin=\(autoJoin)")
         self.close()
 
-        // Notify that restart is needed
-        let alert = NSAlert()
-        alert.messageText = "Preferences Saved"
-        alert.informativeText = "Restart the app for changes to take effect."
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+        // Notify AppDelegate to reload config and reconnect
+        NotificationCenter.default.post(name: .preferencesDidChange, object: nil)
     }
 
     @objc private func cancelPreferences() {
