@@ -463,22 +463,19 @@ class PreferencesWindow: NSWindow {
 
     /// Request Reminders access so the list dropdown is populated even before the handler starts.
     private func requestRemindersAccessIfNeeded() {
-        let store = EKEventStore()
         Task {
-            let granted: Bool
-            if #available(macOS 14.0, *) {
-                granted = (try? await store.requestFullAccessToReminders()) ?? false
-            } else {
-                granted = (try? await store.requestAccess(to: .reminder)) ?? false
-            }
+            let granted = await ReminderService.requestSharedAccess()
             if granted {
                 await MainActor.run {
                     let config = Config.load()
                     populateReminderLists()
+                    Logger.log("📋 Preferences: loaded \(reminderListPopup.numberOfItems) reminder list(s)")
                     if reminderListPopup.itemTitles.contains(config.reminderListName) {
                         reminderListPopup.selectItem(withTitle: config.reminderListName)
                     }
                 }
+            } else {
+                Logger.log("⚠️  Preferences: Reminders access not granted")
             }
         }
     }

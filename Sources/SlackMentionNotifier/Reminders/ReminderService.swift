@@ -77,9 +77,29 @@ class ReminderService {
         return defaultCalendar ?? calendars.first!
     }
 
+    /// Shared store for listing calendars (persists across calls so calendars are available).
+    private static let sharedStore = EKEventStore()
+    private static var sharedStoreHasAccess = false
+
+    /// Request access on the shared store (call once before using availableLists).
+    static func requestSharedAccess() async -> Bool {
+        if sharedStoreHasAccess { return true }
+        do {
+            let granted: Bool
+            if #available(macOS 14.0, *) {
+                granted = try await sharedStore.requestFullAccessToReminders()
+            } else {
+                granted = try await sharedStore.requestAccess(to: .reminder)
+            }
+            sharedStoreHasAccess = granted
+            return granted
+        } catch {
+            return false
+        }
+    }
+
     /// Get all available Reminders list names.
     static func availableLists() -> [String] {
-        let store = EKEventStore()
-        return store.calendars(for: .reminder).map { $0.title }
+        return sharedStore.calendars(for: .reminder).map { $0.title }
     }
 }
