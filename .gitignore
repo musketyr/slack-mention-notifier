@@ -9,3 +9,6 @@ dist/
 # Secrets are injected by CI — keep the template, not real values
 # If you edit Secrets.swift locally, don't commit it
 # Sources/SlackMentionNotifier/Secrets.swift
+
+# Local secrets for development (never commit)
+.env.local
