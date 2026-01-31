@@ -3,7 +3,7 @@ import Security
 
 /// Simple Keychain wrapper for storing/retrieving tokens.
 enum KeychainHelper {
-    private static let service = "com.slack-mention-notifier"
+    private static let service = "cz.orany.smn"
 
     /// Save a value to the Keychain.
     static func save(key: String, value: String) -> Bool {

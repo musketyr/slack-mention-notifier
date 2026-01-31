@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>com.musketyr.slack-mention-notifier</string>
+    <string>cz.orany.smn</string>
     <key>CFBundleName</key>
     <string>Slack Mention Notifier</string>
     <key>CFBundleDisplayName</key>

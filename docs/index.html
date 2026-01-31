@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Slack Mention Notifier</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f8f8f8;
+            color: #333;
+            min-height: 100vh;
+        }
+        .hero {
+            text-align: center;
+            padding: 80px 20px 60px;
+            background: linear-gradient(135deg, #4A154B 0%, #611f69 100%);
+            color: white;
+        }
+        .hero h1 {
+            font-size: 36px;
+            margin-bottom: 12px;
+        }
+        .hero p {
+            font-size: 18px;
+            opacity: 0.9;
+            max-width: 520px;
+            margin: 0 auto 32px;
+            line-height: 1.5;
+        }
+        .hero .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        .buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .btn-slack {
+            background: white;
+            color: #4A154B;
+        }
+        .btn-slack img {
+            height: 20px;
+        }
+        .btn-download {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        .features {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+        .features h2 {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 32px;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+        }
+        .feature {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .feature .emoji {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        .feature h3 {
+            font-size: 16px;
+            margin-bottom: 6px;
+        }
+        .feature p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
+        }
+        .setup {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 0 20px 60px;
+        }
+        .setup h2 {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 24px;
+        }
+        .steps {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .step {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .step:last-child { margin-bottom: 0; }
+        .step-num {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            background: #4A154B;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .step-text h4 { margin-bottom: 4px; }
+        .step-text p { font-size: 14px; color: #666; }
+        footer {
+            text-align: center;
+            padding: 32px 20px;
+            color: #999;
+            font-size: 14px;
+        }
+        footer a { color: #611f69; }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <div class="icon">🔔</div>
+        <h1>Slack Mention Notifier</h1>
+        <p>Never miss a Slack mention. Get Apple Reminders and macOS notifications — all from your menu bar.</p>
+        <div class="buttons">
+            <a href="https://slack.com/oauth/v2/authorize?client_id=__CLIENT_ID__&scope=channels:history,channels:join,channels:read,chat:write,groups:history,groups:read,im:history,im:read,mpim:history,mpim:read,reactions:write,users:read&redirect_uri=https://smn.orany.cz/callback/" class="btn btn-slack">
+                <img src="https://cdn.brandfolder.io/5H442O3W/at/pl546j-7le8zk-btwjnu/Slack_Mark.svg" alt="Slack">
+                Add to Slack
+            </a>
+            <a href="https://github.com/musketyr/slack-mention-notifier/releases/latest" class="btn btn-download">
+                ⬇ Download for macOS
+            </a>
+        </div>
+    </div>
+
+    <div class="features">
+        <h2>How it works</h2>
+        <div class="feature-grid">
+            <div class="feature">
+                <div class="emoji">👀</div>
+                <h3>Auto-react</h3>
+                <p>Reacts to messages that mention you so people know you've seen it.</p>
+            </div>
+            <div class="feature">
+                <div class="emoji">✅</div>
+                <h3>Apple Reminders</h3>
+                <p>Creates a reminder with the message, sender, channel, and a permalink back to Slack.</p>
+            </div>
+            <div class="feature">
+                <div class="emoji">🔔</div>
+                <h3>macOS Notification</h3>
+                <p>Get a native notification so you never miss a mention, even when Slack is closed.</p>
+            </div>
+            <div class="feature">
+                <div class="emoji">🔌</div>
+                <h3>Zero Infrastructure</h3>
+                <p>Runs entirely on your Mac via WebSocket. No servers, no tunnels, no cloud.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="setup">
+        <h2>Get started</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-text">
+                    <h4>Download the app</h4>
+                    <p>Grab the latest <a href="https://github.com/musketyr/slack-mention-notifier/releases/latest">DMG from GitHub Releases</a> and drag it to Applications.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-text">
+                    <h4>Sign in with Slack</h4>
+                    <p>Launch the app, click the 🔔 icon in your menu bar, and choose "Sign in with Slack..."</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-text">
+                    <h4>Enable Launch at Login</h4>
+                    <p>Toggle "Launch at Login" from the menu bar so it starts automatically.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-text">
+                    <h4>That's it!</h4>
+                    <p>Mentions are tracked automatically. Check your Apple Reminders for a clean todo list.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <a href="https://github.com/musketyr/slack-mention-notifier">GitHub</a> ·
+        MIT License
+    </footer>
+</body>
+</html>

@@ -128,7 +128,7 @@ Go to [api.slack.com/apps](https://api.slack.com/apps) → Create New App → **
   },
   "oauth_config": {
     "redirect_urls": [
-      "https://vladimir.orany.cz/slack-mention-notifier/callback/"
+      "https://smn.orany.cz/callback/"
     ],
     "scopes": {
       "bot": [

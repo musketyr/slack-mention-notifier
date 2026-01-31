@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.musketyr.slack-mention-notifier</string>
+    <string>cz.orany.smn</string>
     <key>ProgramArguments</key>
     <array>
         <string>__BINARY__</string>

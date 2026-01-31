@@ -5,7 +5,7 @@ BINARY_NAME = SlackMentionNotifier
 BUILD_DIR = .build/release
 INSTALL_DIR = $(HOME)/.local/bin
 LAUNCH_AGENT_DIR = $(HOME)/Library/LaunchAgents
-PLIST_NAME = com.musketyr.slack-mention-notifier.plist
+PLIST_NAME = cz.orany.smn.plist
 
 build:
 	swift build -c release
