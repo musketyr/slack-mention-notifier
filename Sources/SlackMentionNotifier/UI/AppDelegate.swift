@@ -46,7 +46,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else if config.isOAuthAvailable {
             statusMenuItem.title = "○ Not connected"
             authMenuItem.title = "Sign in with Slack..."
-            authMenuItem.isHidden = false
+            // authMenuItem always visible
             Logger.log("🔐 OAuth available — click the 🔔 menu bar icon → 'Sign in with Slack...'")
         } else if config.slackAppToken.isEmpty {
             statusMenuItem.title = "⚠ Not configured"
@@ -68,7 +68,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         authMenuItem = NSMenuItem(title: "Sign in with Slack...", action: #selector(signInWithSlack), keyEquivalent: "")
         authMenuItem.target = self
-        authMenuItem.isHidden = true
         menu.addItem(authMenuItem)
 
         let copyLinkItem = NSMenuItem(title: "Copy Sign-in Link", action: #selector(copySignInLink), keyEquivalent: "")
@@ -198,11 +197,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Slack Connection
 
     private func startHandler() async {
+        // Log token types for debugging
+        let appPrefix = String(config.slackAppToken.prefix(10))
+        let botPrefix = String(config.slackBotToken.prefix(10))
+        Logger.log("🔑 Starting with appToken=\(appPrefix)..., botToken=\(botPrefix)...")
+
+        if !config.slackAppToken.hasPrefix("xapp-") {
+            Logger.log("⚠️  App token doesn't start with 'xapp-' — Socket Mode will fail!")
+        }
+        if !config.slackBotToken.hasPrefix("xoxb-") {
+            Logger.log("⚠️  Bot token doesn't start with 'xoxb-' — API calls may fail!")
+        }
+
         mentionHandler = MentionHandler(config: config)
 
         await MainActor.run {
             statusMenuItem.title = "● Connected"
-            authMenuItem.isHidden = true
         }
 
         await mentionHandler?.start()
@@ -233,7 +243,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if config.isReady {
                     await MainActor.run {
                         statusMenuItem.title = "● Connected (\(teamName))"
-                        authMenuItem.isHidden = true
+                        // authMenuItem always visible
                     }
                     await startHandler()
                 } else {
@@ -283,7 +293,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if config.isOAuthAvailable {
             statusMenuItem.title = "○ Not connected"
             authMenuItem.title = "Sign in with Slack..."
-            authMenuItem.isHidden = false
+            // authMenuItem always visible
             authMenuItem.isEnabled = true
         } else {
             statusMenuItem.title = "○ Signed out"
