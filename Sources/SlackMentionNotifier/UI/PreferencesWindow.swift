@@ -11,8 +11,11 @@ class PreferencesWindow: NSWindow {
     private var reminderListPopup: NSPopUpButton!
     private var emojiField: NSComboBox!
     private var autoJoinCheckbox: NSButton!
+    private var titleTemplateCombo: NSComboBox!
+    private var notesTemplateCombo: NSComboBox!
     private var customEmojis: [String] = []
     private var loadingSpinner: NSProgressIndicator!
+    private var previewLabel: NSTextField!
 
     /// Common standard Slack emoji names with their Unicode glyphs.
     private static let standardEmojis: [(name: String, glyph: String)] = [
@@ -29,7 +32,7 @@ class PreferencesWindow: NSWindow {
 
     init() {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 280),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 480),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -51,7 +54,12 @@ class PreferencesWindow: NSWindow {
         let labelWidth: CGFloat = 120
         let fieldX = margin + labelWidth + 8
         let fieldWidth: CGFloat = contentView.bounds.width - fieldX - margin
-        var y: CGFloat = contentView.bounds.height - 52
+        var y: CGFloat = contentView.bounds.height - 44
+
+        // --- Section: General ---
+        let generalHeader = makeSectionHeader("General", x: margin, y: y)
+        contentView.addSubview(generalHeader)
+        y -= 30
 
         // --- Reminders List ---
         let reminderLabel = makeLabel("Reminders list:", x: margin, y: y)
@@ -62,7 +70,7 @@ class PreferencesWindow: NSWindow {
         populateReminderLists()
         contentView.addSubview(reminderListPopup)
 
-        y -= 40
+        y -= 34
 
         // --- Reaction Emoji ---
         let emojiLabel = makeLabel("Reaction emoji:", x: margin, y: y)
@@ -83,21 +91,80 @@ class PreferencesWindow: NSWindow {
         loadingSpinner.isHidden = true
         contentView.addSubview(loadingSpinner)
 
-        y -= 24
+        y -= 20
         let emojiHint = NSTextField(labelWithString: "Slack emoji name without colons (e.g. eyes, thumbsup)")
         emojiHint.font = NSFont.systemFont(ofSize: 11)
         emojiHint.textColor = .secondaryLabelColor
         emojiHint.frame = NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 16)
         contentView.addSubview(emojiHint)
 
-        y -= 32
+        y -= 28
 
         // --- Auto-join ---
         autoJoinCheckbox = NSButton(checkboxWithTitle: "Automatically join all public channels", target: nil, action: nil)
         autoJoinCheckbox.frame = NSRect(x: fieldX, y: y, width: fieldWidth, height: 22)
         contentView.addSubview(autoJoinCheckbox)
 
+        y -= 36
+
+        // --- Section: Reminder Templates ---
+        let templateHeader = makeSectionHeader("Reminder Templates", x: margin, y: y)
+        contentView.addSubview(templateHeader)
+        y -= 6
+        let templateHint = NSTextField(labelWithString: "Placeholders: {sender}  {channel}  {message}  {permalink}  {date}")
+        templateHint.font = NSFont.systemFont(ofSize: 11)
+        templateHint.textColor = .secondaryLabelColor
+        templateHint.frame = NSRect(x: margin, y: y - 2, width: contentView.bounds.width - margin * 2, height: 16)
+        contentView.addSubview(templateHint)
+        y -= 26
+
+        // --- Title Template ---
+        let titleLabel = makeLabel("Title:", x: margin, y: y)
+        contentView.addSubview(titleLabel)
+
+        titleTemplateCombo = NSComboBox(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26))
+        titleTemplateCombo.isEditable = true
+        titleTemplateCombo.completes = false
+        titleTemplateCombo.numberOfVisibleItems = 6
+        titleTemplateCombo.addItems(withObjectValues: Config.titlePresets.map { "\($0.name): \($0.template)" })
+        titleTemplateCombo.target = self
+        titleTemplateCombo.action = #selector(templateChanged)
+        contentView.addSubview(titleTemplateCombo)
+
+        y -= 34
+
+        // --- Notes Template ---
+        let notesLabel = makeLabel("Notes:", x: margin, y: y)
+        contentView.addSubview(notesLabel)
+
+        notesTemplateCombo = NSComboBox(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26))
+        notesTemplateCombo.isEditable = true
+        notesTemplateCombo.completes = false
+        notesTemplateCombo.numberOfVisibleItems = 6
+        notesTemplateCombo.addItems(withObjectValues: Config.notesPresets.map { "\($0.name): \($0.template)" })
+        notesTemplateCombo.target = self
+        notesTemplateCombo.action = #selector(templateChanged)
+        contentView.addSubview(notesTemplateCombo)
+
+        y -= 28
+
+        // --- Preview ---
+        let previewHeader = NSTextField(labelWithString: "Preview:")
+        previewHeader.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        previewHeader.textColor = .secondaryLabelColor
+        previewHeader.frame = NSRect(x: fieldX, y: y, width: fieldWidth, height: 14)
+        contentView.addSubview(previewHeader)
+
         y -= 48
+        previewLabel = NSTextField(wrappingLabelWithString: "")
+        previewLabel.font = NSFont.systemFont(ofSize: 11)
+        previewLabel.textColor = .labelColor
+        previewLabel.frame = NSRect(x: fieldX, y: y, width: fieldWidth, height: 48)
+        previewLabel.maximumNumberOfLines = 4
+        previewLabel.lineBreakMode = .byTruncatingTail
+        contentView.addSubview(previewLabel)
+
+        y -= 16
 
         // --- Buttons ---
         let saveButton = NSButton(title: "Save", target: self, action: #selector(savePreferences))
@@ -111,6 +178,14 @@ class PreferencesWindow: NSWindow {
         cancelButton.keyEquivalent = "\u{1b}"
         cancelButton.frame = NSRect(x: contentView.bounds.width - margin - 170, y: margin, width: 80, height: 32)
         contentView.addSubview(cancelButton)
+    }
+
+    private func makeSectionHeader(_ text: String, x: CGFloat, y: CGFloat) -> NSTextField {
+        let label = NSTextField(labelWithString: text)
+        label.font = NSFont.systemFont(ofSize: 13, weight: .bold)
+        label.textColor = .labelColor
+        label.frame = NSRect(x: x, y: y, width: 300, height: 18)
+        return label
     }
 
     private func populateReminderLists() {
@@ -172,6 +247,45 @@ class PreferencesWindow: NSWindow {
 
         // Set auto-join
         autoJoinCheckbox.state = config.autoJoinChannels ? .on : .off
+
+        // Set templates
+        titleTemplateCombo.stringValue = config.reminderTitleTemplate
+        notesTemplateCombo.stringValue = config.reminderNotesTemplate
+
+        updatePreview()
+    }
+
+    @objc private func templateChanged() {
+        updatePreview()
+    }
+
+    private func updatePreview() {
+        let titleTemplate = extractTemplate(from: titleTemplateCombo.stringValue)
+        let notesTemplate = extractTemplate(from: notesTemplateCombo.stringValue)
+
+        let title = Config.applyTemplate(titleTemplate,
+                                          sender: "Jane Doe", channel: "general",
+                                          message: "Hey @you, can you review this PR?",
+                                          permalink: "https://slack.com/archives/C01/p1234")
+        let notes = Config.applyTemplate(notesTemplate,
+                                          sender: "Jane Doe", channel: "general",
+                                          message: "Hey @you, can you review this PR?",
+                                          permalink: "https://slack.com/archives/C01/p1234")
+
+        previewLabel.stringValue = "📌 \(title)\n📝 \(notes)"
+    }
+
+    /// Extract the template string from a combo box value.
+    /// If user selected a preset ("Name: template"), extract the template part.
+    /// If user typed a custom value, use it as-is.
+    private func extractTemplate(from value: String) -> String {
+        // Check if it matches a preset format "Name: template"
+        for preset in Config.titlePresets + Config.notesPresets {
+            if value == "\(preset.name): \(preset.template)" {
+                return preset.template
+            }
+        }
+        return value
     }
 
     /// Load custom emoji from Slack (call after sign-in).
@@ -206,11 +320,19 @@ class PreferencesWindow: NSWindow {
         let reminderList = reminderListPopup.titleOfSelectedItem ?? "Reminders"
         var emoji = emojiField.stringValue.trimmingCharacters(in: .whitespaces)
         let autoJoin = autoJoinCheckbox.state == .on
+        let titleTemplate = extractTemplate(from: titleTemplateCombo.stringValue)
+        let notesTemplate = extractTemplate(from: notesTemplateCombo.stringValue)
 
         // Strip glyph prefix if user selected from dropdown (e.g. "👀  eyes" → "eyes", "✦  custom" → "custom")
         if let spaceRange = emoji.range(of: "  ") {
             emoji = String(emoji[spaceRange.upperBound...]).trimmingCharacters(in: .whitespaces)
         }
+
+        // Config keys managed by preferences
+        let managedKeys: Set<String> = [
+            "APPLE_REMINDERS_LIST", "REACTION_EMOJI", "AUTO_JOIN_CHANNELS",
+            "REMINDER_TITLE_TEMPLATE", "REMINDER_NOTES_TEMPLATE"
+        ]
 
         // Write to config file
         var lines: [String] = []
@@ -219,12 +341,8 @@ class PreferencesWindow: NSWindow {
         if let contents = try? String(contentsOf: Config.envFilePath, encoding: .utf8) {
             for line in contents.components(separatedBy: .newlines) {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
-                // Skip lines we're going to rewrite
-                if trimmed.hasPrefix("APPLE_REMINDERS_LIST=") ||
-                   trimmed.hasPrefix("REACTION_EMOJI=") ||
-                   trimmed.hasPrefix("AUTO_JOIN_CHANNELS=") {
-                    continue
-                }
+                let key = trimmed.split(separator: "=", maxSplits: 1).first.map(String.init) ?? ""
+                if managedKeys.contains(key) { continue }
                 lines.append(line)
             }
         }
@@ -241,11 +359,17 @@ class PreferencesWindow: NSWindow {
             lines.append("REACTION_EMOJI=\(emoji)")
         }
         lines.append("AUTO_JOIN_CHANNELS=\(autoJoin)")
+        if titleTemplate != Config.defaultTitleTemplate {
+            lines.append("REMINDER_TITLE_TEMPLATE=\(titleTemplate)")
+        }
+        if notesTemplate != Config.defaultNotesTemplate {
+            lines.append("REMINDER_NOTES_TEMPLATE=\(notesTemplate)")
+        }
 
         let content = lines.joined(separator: "\n") + "\n"
         try? content.write(to: Config.envFilePath, atomically: true, encoding: .utf8)
 
-        print("💾 Preferences saved: list=\(reminderList), emoji=\(emoji), autoJoin=\(autoJoin)")
+        print("💾 Preferences saved: list=\(reminderList), emoji=\(emoji), autoJoin=\(autoJoin), titleTemplate=\(titleTemplate)")
         self.close()
 
         // Notify AppDelegate to reload config and reconnect

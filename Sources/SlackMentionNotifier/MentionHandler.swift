@@ -166,11 +166,13 @@ actor MentionHandler {
         // 3. Resolve user mentions in message text
         let resolvedText = await resolveMentions(in: event.text)
 
-        // 4. Create Apple Reminder
-        let title = "Slack: \(senderName) in #\(channelName)"
-        let notes = permalink != nil
-            ? "\(resolvedText)\n\n\(permalink!)"
-            : resolvedText
+        // 4. Create Apple Reminder using templates
+        let title = Config.applyTemplate(config.reminderTitleTemplate,
+                                          sender: senderName, channel: channelName,
+                                          message: resolvedText, permalink: permalink)
+        let notes = Config.applyTemplate(config.reminderNotesTemplate,
+                                          sender: senderName, channel: channelName,
+                                          message: resolvedText, permalink: permalink)
 
         await reminderService.createReminder(title: title, notes: notes)
 

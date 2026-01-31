@@ -8,10 +8,52 @@ struct Config {
     let reminderListName: String    // Apple Reminders list name (default: "Reminders")
     let reactionEmoji: String       // Emoji to react with (default: "eyes")
     let autoJoinChannels: Bool      // Automatically join all public channels (default: false)
+    let reminderTitleTemplate: String   // Template for reminder title
+    let reminderNotesTemplate: String   // Template for reminder notes
 
     // OAuth settings (optional — only needed for "Sign in with Slack" flow)
     let slackClientId: String?
     let slackClientSecret: String?
+
+    /// Default templates for reminders.
+    static let defaultTitleTemplate = "Slack: {sender} in #{channel}"
+    static let defaultNotesTemplate = "{message}\n\n{permalink}"
+
+    /// Built-in title template presets.
+    static let titlePresets: [(name: String, template: String)] = [
+        ("Default", "Slack: {sender} in #{channel}"),
+        ("Compact", "💬 {sender} → #{channel}"),
+        ("Sender only", "Slack mention from {sender}"),
+        ("Channel first", "#{channel}: {sender} mentioned you"),
+    ]
+
+    /// Built-in notes template presets.
+    static let notesPresets: [(name: String, template: String)] = [
+        ("Default", "{message}\n\n{permalink}"),
+        ("Structured", "From: {sender}\nChannel: #{channel}\nDate: {date}\n\n{message}\n\n{permalink}"),
+        ("Compact", "{message}\n— {sender} in #{channel}\n{permalink}"),
+        ("Link only", "{permalink}"),
+    ]
+
+    /// Apply a template string with the given values.
+    static func applyTemplate(_ template: String, sender: String, channel: String,
+                               message: String, permalink: String?, date: Date = Date()) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+
+        var result = template
+        result = result.replacingOccurrences(of: "{sender}", with: sender)
+        result = result.replacingOccurrences(of: "{channel}", with: channel)
+        result = result.replacingOccurrences(of: "{message}", with: message)
+        result = result.replacingOccurrences(of: "{permalink}", with: permalink ?? "")
+        result = result.replacingOccurrences(of: "{date}", with: formatter.string(from: date))
+        // Clean up double newlines if permalink was nil
+        if permalink == nil {
+            result = result.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+        }
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     /// Base directory for all app data: ~/.config/slack-mention-notifier/
     static let configDir: URL = {
@@ -96,6 +138,8 @@ struct Config {
             reminderListName: env("APPLE_REMINDERS_LIST", fileValues: file) ?? "Reminders",
             reactionEmoji: env("REACTION_EMOJI", fileValues: file) ?? "eyes",
             autoJoinChannels: env("AUTO_JOIN_CHANNELS", fileValues: file)?.lowercased() == "true",
+            reminderTitleTemplate: env("REMINDER_TITLE_TEMPLATE", fileValues: file) ?? defaultTitleTemplate,
+            reminderNotesTemplate: env("REMINDER_NOTES_TEMPLATE", fileValues: file) ?? defaultNotesTemplate,
             slackClientId: clientId,
             slackClientSecret: clientSecret
         )
