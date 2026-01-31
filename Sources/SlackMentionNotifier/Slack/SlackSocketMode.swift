@@ -8,14 +8,18 @@ import FoundationNetworking
 actor SlackSocketMode {
     private let appToken: String
     private let onEvent: (SlackEvent) async -> Void
+    private let onConnect: (() async -> Void)?
     private var webSocketTask: URLSessionWebSocketTask?
     private var session: URLSession?
     private var isRunning = false
     private var reconnectDelay: TimeInterval = 1.0
 
-    init(appToken: String, onEvent: @escaping (SlackEvent) async -> Void) {
+    init(appToken: String,
+         onEvent: @escaping (SlackEvent) async -> Void,
+         onConnect: (() async -> Void)? = nil) {
         self.appToken = appToken
         self.onEvent = onEvent
+        self.onConnect = onConnect
     }
 
     /// Start the Socket Mode connection loop (reconnects automatically).
@@ -112,6 +116,7 @@ actor SlackSocketMode {
 
         case "hello":
             print("👋 Slack Socket Mode handshake complete")
+            await onConnect?()
 
         default:
             break

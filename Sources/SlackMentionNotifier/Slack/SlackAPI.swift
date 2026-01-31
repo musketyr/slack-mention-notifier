@@ -39,6 +39,11 @@ struct SlackAPI {
         let body: [String: Any] = ["user": userId]
         let result = try await post("users.info", body: body)
 
+        if result["ok"] as? Bool != true {
+            print("⚠️  users.info failed: \(result["error"] as? String ?? "unknown")")
+            return (userId, nil)
+        }
+
         if let user = result["user"] as? [String: Any] {
             let name = user["name"] as? String ?? userId
             let realName = (user["real_name"] as? String) ??
@@ -52,7 +57,72 @@ struct SlackAPI {
     func getChannelInfo(channelId: String) async throws -> String? {
         let body: [String: Any] = ["channel": channelId]
         let result = try await post("conversations.info", body: body)
+
+        if result["ok"] as? Bool != true {
+            print("⚠️  conversations.info failed: \(result["error"] as? String ?? "unknown")")
+            return nil
+        }
+
         return (result["channel"] as? [String: Any])?["name"] as? String
+    }
+
+    /// List conversations the bot is a member of.
+    func listConversations() async throws -> [(id: String, name: String)] {
+        var allChannels: [(id: String, name: String)] = []
+        var cursor: String? = nil
+
+        repeat {
+            var body: [String: Any] = [
+                "types": "public_channel,private_channel,mpim,im",
+                "limit": 200
+            ]
+            if let cursor = cursor {
+                body["cursor"] = cursor
+            }
+
+            let result = try await post("users.conversations", body: body)
+
+            if result["ok"] as? Bool != true {
+                print("⚠️  users.conversations failed: \(result["error"] as? String ?? "unknown")")
+                break
+            }
+
+            if let channels = result["channels"] as? [[String: Any]] {
+                for ch in channels {
+                    if let id = ch["id"] as? String {
+                        let name = ch["name"] as? String ?? id
+                        allChannels.append((id: id, name: name))
+                    }
+                }
+            }
+
+            cursor = (result["response_metadata"] as? [String: Any])?["next_cursor"] as? String
+            if cursor?.isEmpty == true { cursor = nil }
+        } while cursor != nil
+
+        return allChannels
+    }
+
+    /// Fetch messages from a channel since a given timestamp.
+    func conversationsHistory(channel: String, oldest: String, limit: Int = 200) async throws -> [[String: Any]] {
+        let body: [String: Any] = [
+            "channel": channel,
+            "oldest": oldest,
+            "limit": limit,
+            "inclusive": false
+        ]
+        let result = try await post("conversations.history", body: body)
+
+        if result["ok"] as? Bool != true {
+            let error = result["error"] as? String ?? "unknown"
+            // not_in_channel is expected for channels bot hasn't joined
+            if error != "not_in_channel" && error != "channel_not_found" {
+                print("⚠️  conversations.history(\(channel)) failed: \(error)")
+            }
+            return []
+        }
+
+        return result["messages"] as? [[String: Any]] ?? []
     }
 
     // MARK: - HTTP

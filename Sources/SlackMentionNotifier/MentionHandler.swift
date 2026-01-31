@@ -6,11 +6,19 @@ actor MentionHandler {
     private let slackAPI: SlackAPI
     private let reminderService: ReminderService
     private var socketMode: SlackSocketMode?
+    private var lastSeenTs: String
+
+    /// File to persist last-seen timestamp across restarts.
+    private static var tsFilePath: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".slack-mention-notifier-last-ts")
+    }
 
     init(config: Config) {
         self.config = config
         self.slackAPI = SlackAPI(botToken: config.slackBotToken)
         self.reminderService = ReminderService(listName: config.reminderListName)
+        self.lastSeenTs = (try? String(contentsOf: Self.tsFilePath, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)) ?? ""
     }
 
     func start() async {
@@ -19,9 +27,9 @@ actor MentionHandler {
 
         print("👂 Listening for mentions of <@\(config.trackedUserId)>...")
 
-        socketMode = SlackSocketMode(appToken: config.slackAppToken) { [weak self] event in
-            await self?.handleEvent(event)
-        }
+        socketMode = SlackSocketMode(appToken: config.slackAppToken,
+                                     onEvent: { [weak self] event in await self?.handleEvent(event) },
+                                     onConnect: { [weak self] in await self?.catchUp() })
 
         await socketMode?.start()
     }
@@ -30,9 +38,63 @@ actor MentionHandler {
         await socketMode?.stop()
     }
 
+    /// Catch up on missed mentions since last seen timestamp.
+    private func catchUp() async {
+        guard !lastSeenTs.isEmpty else {
+            // First run — no baseline, just start tracking from now
+            updateLastSeen(ts: String(Date().timeIntervalSince1970))
+            print("📌 First run — tracking mentions from now")
+            return
+        }
+
+        print("🔄 Catching up on missed mentions since \(lastSeenTs)...")
+
+        do {
+            let channels = try await slackAPI.listConversations()
+            var catchUpCount = 0
+
+            for channel in channels {
+                let messages = try await slackAPI.conversationsHistory(channel: channel.id, oldest: lastSeenTs)
+                for msg in messages {
+                    guard let text = msg["text"] as? String,
+                          let user = msg["user"] as? String,
+                          let ts = msg["ts"] as? String,
+                          text.contains("<@\(config.trackedUserId)>"),
+                          msg["subtype"] == nil else { continue }
+
+                    let event = SlackEvent(type: "message", text: text, user: user,
+                                           channel: channel.id, ts: ts, subtype: nil)
+                    updateLastSeen(ts: ts)
+                    await processEvent(event)
+                    catchUpCount += 1
+                }
+            }
+
+            if catchUpCount > 0 {
+                print("✅ Caught up on \(catchUpCount) missed mention(s)")
+            } else {
+                print("✅ No missed mentions")
+            }
+        } catch {
+            print("⚠️  Catch-up failed: \(error)")
+        }
+    }
+
+    private func updateLastSeen(ts: String) {
+        if ts > lastSeenTs {
+            lastSeenTs = ts
+            try? ts.write(to: Self.tsFilePath, atomically: true, encoding: .utf8)
+        }
+    }
+
     private func handleEvent(_ event: SlackEvent) async {
         guard event.isMention(of: config.trackedUserId) else { return }
+        updateLastSeen(ts: event.ts)
+        await processEvent(event)
+    }
 
+    /// Shared processing for both real-time and catch-up events.
+    private func processEvent(_ event: SlackEvent) async {
         print("🔔 Mention detected in \(event.channel) from \(event.user)")
 
         // 1. React with 👀

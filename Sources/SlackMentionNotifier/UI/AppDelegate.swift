@@ -27,20 +27,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
 
         // Start the mention handler
-        Task {
-            await startHandler(statusMenuItem: statusMenuItem)
+        Task { @MainActor in
+            statusMenuItem.title = "● Connected"
+            await self.startHandler()
         }
     }
 
-    private func startHandler(statusMenuItem: NSMenuItem) async {
+    private func startHandler() async {
         let config = Config.load()
         mentionHandler = MentionHandler(config: config)
-
-        // Update status in menu
-        await MainActor.run {
-            statusMenuItem.title = "● Connected"
-        }
-
         await mentionHandler?.start()
     }
 
