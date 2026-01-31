@@ -67,28 +67,11 @@ actor OAuthFlow {
         // 3. Get the authorization code
         let code: String
         if let server = server {
-            // Auto mode: wait for the callback redirect
-            print("⏳ Waiting for authorization (or paste the code here and press Enter)...")
-
-            // Race: either the server gets the callback or user pastes code in terminal
-            code = try await withThrowingTaskGroup(of: String.self) { group in
-                group.addTask {
-                    try await server.waitForCode()
-                }
-                group.addTask {
-                    try await Self.readCodeFromStdin()
-                }
-
-                guard let first = try await group.next() else {
-                    throw OAuthError.timeout
-                }
-                group.cancelAll()
-                return first
-            }
-
+            print("⏳ Waiting for authorization callback...")
+            code = try await server.waitForCode()
             await server.stop()
         } else {
-            // Manual mode: user pastes code in terminal
+            // Fallback: user pastes code in terminal
             print("📋 After authorizing, paste the code from the browser here and press Enter:")
             code = try await Self.readCodeFromStdin()
         }
