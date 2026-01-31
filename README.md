@@ -1,5 +1,7 @@
 # Slack Mention Notifier
 
+🌐 **[smn.orany.cz](https://smn.orany.cz)**
+
 A lightweight macOS menu bar app that monitors Slack mentions via **Socket Mode** (WebSocket) and:
 
 - 👀 Reacts to the message (configurable emoji)
