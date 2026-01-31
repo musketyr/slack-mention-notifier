@@ -21,6 +21,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         buildMenu()
 
+        // Use text fallback if SF Symbol isn't available
+        if statusItem.button?.image == nil {
+            statusItem.button?.title = "🔔"
+        }
+
+        print("📌 Menu bar item created")
+
         if config.isReady {
             Task { @MainActor in
                 statusMenuItem.title = "● Connecting..."
@@ -30,6 +37,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             statusMenuItem.title = "○ Not connected"
             authMenuItem.title = "Sign in with Slack..."
             authMenuItem.isHidden = false
+            print("🔐 OAuth available — click the 🔔 menu bar icon → 'Sign in with Slack...'")
+        
         } else {
             statusMenuItem.title = "⚠ Missing config"
             print("❌ Bot token not configured. Set SLACK_BOT_TOKEN in config or add SLACK_CLIENT_ID + SLACK_CLIENT_SECRET for OAuth.")
