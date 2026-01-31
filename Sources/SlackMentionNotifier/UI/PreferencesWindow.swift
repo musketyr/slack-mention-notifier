@@ -26,17 +26,139 @@ class PreferencesWindow: NSWindow {
         "sender", "channel", "message", "permalink", "date"
     ]
 
-    /// Common standard Slack emoji names with their Unicode glyphs.
+    /// Standard Slack emoji names with their Unicode glyphs, grouped by category.
+    /// Comprehensive list covering the most commonly used emojis.
     private static let standardEmojis: [(name: String, glyph: String)] = [
-        ("eyes", "👀"), ("white_check_mark", "✅"), ("heavy_check_mark", "✔️"),
-        ("thumbsup", "👍"), ("thumbsdown", "👎"), ("raised_hands", "🙌"),
-        ("pray", "🙏"), ("wave", "👋"), ("bell", "🔔"), ("bookmark", "🔖"),
-        ("bulb", "💡"), ("dart", "🎯"), ("memo", "📝"), ("pushpin", "📌"),
-        ("round_pushpin", "📍"), ("star", "⭐"), ("sparkles", "✨"), ("fire", "🔥"),
-        ("heart", "❤️"), ("100", "💯"), ("ok_hand", "👌"), ("muscle", "💪"),
-        ("brain", "🧠"), ("mag", "🔍"), ("hourglass", "⏳"), ("rotating_light", "🚨"),
-        ("warning", "⚠️"), ("speech_balloon", "💬"), ("thought_balloon", "💭"),
-        ("inbox_tray", "📥")
+        // --- Reactions / Acknowledgement ---
+        ("eyes", "👀"), ("thumbsup", "👍"), ("thumbsdown", "👎"),
+        ("+1", "👍"), ("-1", "👎"),
+        ("white_check_mark", "✅"), ("heavy_check_mark", "✔️"),
+        ("ballot_box_with_check", "☑️"),
+        ("ok_hand", "👌"), ("raised_hands", "🙌"), ("clap", "👏"),
+        ("pray", "🙏"), ("handshake", "🤝"), ("wave", "👋"),
+        ("muscle", "💪"), ("brain", "🧠"), ("saluting_face", "🫡"),
+        ("100", "💯"), ("fire", "🔥"), ("star", "⭐"), ("sparkles", "✨"),
+        ("tada", "🎉"), ("confetti_ball", "🎊"), ("trophy", "🏆"),
+        ("medal", "🏅"), ("crown", "👑"),
+
+        // --- Emotions ---
+        ("heart", "❤️"), ("heart_eyes", "😍"), ("smiling_face_with_3_hearts", "🥰"),
+        ("blush", "😊"), ("smile", "😄"), ("grinning", "😀"),
+        ("joy", "😂"), ("rofl", "🤣"), ("laughing", "😆"),
+        ("wink", "😉"), ("relieved", "😌"), ("sunglasses", "😎"),
+        ("thinking_face", "🤔"), ("face_with_monocle", "🧐"),
+        ("exploding_head", "🤯"), ("open_mouth", "😮"),
+        ("hushed", "😯"), ("astonished", "😲"),
+        ("cry", "😢"), ("sob", "😭"),
+        ("scream", "😱"), ("face_with_rolling_eyes", "🙄"),
+        ("unamused", "😒"), ("grimacing", "😬"), ("sweat_smile", "😅"),
+        ("sweat", "😓"), ("facepalm", "🤦"), ("shrug", "🤷"),
+        ("skull", "💀"), ("ghost", "👻"), ("see_no_evil", "🙈"),
+        ("hear_no_evil", "🙉"), ("speak_no_evil", "🙊"),
+        ("nerd_face", "🤓"), ("robot_face", "🤖"),
+        ("hugging_face", "🤗"), ("zipper_mouth_face", "🤐"),
+
+        // --- Hands / Gestures ---
+        ("point_up", "☝️"), ("point_up_2", "👆"), ("point_down", "👇"),
+        ("point_left", "👈"), ("point_right", "👉"),
+        ("raised_hand", "✋"), ("v", "✌️"), ("crossed_fingers", "🤞"),
+        ("call_me_hand", "🤙"), ("metal", "🤘"), ("love_you_gesture", "🤟"),
+        ("writing_hand", "✍️"), ("raising_hand", "🙋"),
+
+        // --- Objects / Symbols ---
+        ("bell", "🔔"), ("bookmark", "🔖"), ("pushpin", "📌"),
+        ("round_pushpin", "📍"), ("bulb", "💡"), ("dart", "🎯"),
+        ("memo", "📝"), ("clipboard", "📋"),
+        ("mag", "🔍"), ("mag_right", "🔎"),
+        ("hourglass", "⏳"), ("hourglass_flowing_sand", "⏳"),
+        ("alarm_clock", "⏰"), ("stopwatch", "⏱"),
+        ("calendar", "📅"), ("date", "📅"),
+        ("inbox_tray", "📥"), ("outbox_tray", "📤"),
+        ("envelope", "✉️"), ("email", "📧"),
+        ("link", "🔗"), ("paperclip", "📎"),
+        ("key", "🔑"), ("lock", "🔒"), ("unlock", "🔓"),
+        ("hammer", "🔨"), ("wrench", "🔧"), ("gear", "⚙️"),
+        ("package", "📦"), ("gift", "🎁"),
+
+        // --- Status / Alerts ---
+        ("rotating_light", "🚨"), ("warning", "⚠️"),
+        ("no_entry_sign", "🚫"), ("x", "❌"), ("o", "⭕"),
+        ("red_circle", "🔴"), ("large_blue_circle", "🔵"),
+        ("large_green_circle", "🟢"), ("yellow_circle", "🟡"),
+        ("white_circle", "⚪"), ("black_circle", "⚫"),
+        ("question", "❓"), ("exclamation", "❗"),
+        ("bangbang", "‼️"), ("interrobang", "⁉️"),
+        ("speech_balloon", "💬"), ("thought_balloon", "💭"),
+        ("mega", "📣"), ("loudspeaker", "📢"),
+        ("triangular_flag_on_post", "🚩"),
+
+        // --- Arrows / Movement ---
+        ("arrow_up", "⬆️"), ("arrow_down", "⬇️"),
+        ("arrow_left", "⬅️"), ("arrow_right", "➡️"),
+        ("arrow_heading_up", "⤴️"), ("arrow_heading_down", "⤵️"),
+        ("recycle", "♻️"), ("repeat", "🔁"), ("back", "🔙"),
+        ("soon", "🔜"), ("top", "🔝"),
+
+        // --- Nature / Weather ---
+        ("sunny", "☀️"), ("cloud", "☁️"), ("rainbow", "🌈"),
+        ("zap", "⚡"), ("snowflake", "❄️"),
+        ("herb", "🌿"), ("four_leaf_clover", "🍀"),
+        ("seedling", "🌱"), ("evergreen_tree", "🌲"),
+        ("deciduous_tree", "🌳"), ("cactus", "🌵"),
+        ("cherry_blossom", "🌸"), ("sunflower", "🌻"), ("rose", "🌹"),
+
+        // --- Animals ---
+        ("dog", "🐶"), ("cat", "🐱"), ("bear", "🐻"),
+        ("unicorn_face", "🦄"), ("butterfly", "🦋"),
+        ("bee", "🐝"), ("bug", "🐛"), ("snail", "🐌"),
+        ("owl", "🦉"), ("eagle", "🦅"), ("parrot", "🦜"),
+        ("penguin", "🐧"), ("fox_face", "🦊"), ("wolf", "🐺"),
+        ("gorilla", "🦍"), ("monkey_face", "🐵"),
+        ("rabbit", "🐰"), ("turtle", "🐢"), ("snake", "🐍"),
+        ("octopus", "🐙"), ("shark", "🦈"),
+
+        // --- Food / Drink ---
+        ("coffee", "☕"), ("tea", "🍵"), ("beer", "🍺"), ("beers", "🍻"),
+        ("wine_glass", "🍷"), ("champagne", "🍾"), ("cocktail", "🍸"),
+        ("pizza", "🍕"), ("hamburger", "🍔"), ("taco", "🌮"),
+        ("cake", "🎂"), ("cookie", "🍪"), ("doughnut", "🍩"),
+        ("apple", "🍎"), ("banana", "🍌"), ("avocado", "🥑"),
+        ("hot_pepper", "🌶"), ("popcorn", "🍿"), ("ice_cream", "🍦"),
+
+        // --- Tech ---
+        ("computer", "💻"), ("keyboard", "⌨️"), ("desktop_computer", "🖥"),
+        ("mobile_phone", "📱"), ("battery", "🔋"),
+        ("electric_plug", "🔌"), ("satellite", "📡"),
+        ("floppy_disk", "💾"), ("cd", "💿"),
+
+        // --- Travel / Places ---
+        ("rocket", "🚀"), ("airplane", "✈️"), ("car", "🚗"),
+        ("ship", "🛳"), ("earth_americas", "🌎"),
+        ("house", "🏠"), ("office", "🏢"),
+
+        // --- Sports / Activities ---
+        ("soccer", "⚽"), ("basketball", "🏀"), ("football", "🏈"),
+        ("tennis", "🎾"), ("bowling", "🎳"),
+        ("video_game", "🎮"), ("game_die", "🎲"),
+        ("musical_note", "🎵"), ("headphones", "🎧"),
+        ("art", "🎨"), ("performing_arts", "🎭"),
+
+        // --- Hearts ---
+        ("orange_heart", "🧡"), ("yellow_heart", "💛"),
+        ("green_heart", "💚"), ("blue_heart", "💙"),
+        ("purple_heart", "💜"), ("black_heart", "🖤"),
+        ("white_heart", "🤍"), ("brown_heart", "🤎"),
+        ("broken_heart", "💔"), ("heartbeat", "💓"),
+        ("heartpulse", "💗"), ("sparkling_heart", "💖"),
+        ("revolving_hearts", "💞"), ("two_hearts", "💕"),
+
+        // --- Misc popular ---
+        ("money_with_wings", "💸"), ("moneybag", "💰"),
+        ("gem", "💎"), ("boom", "💥"), ("dizzy", "💫"),
+        ("poop", "💩"), ("thumbsup_all", "👍"),
+        ("rainbow_flag", "🏳️‍🌈"), ("checkered_flag", "🏁"),
+        ("pirate_flag", "🏴‍☠️"), ("white_flag", "🏳️"),
+        ("construction", "🚧"), ("stop_sign", "🛑"),
     ]
 
     init() {
@@ -88,7 +210,7 @@ class PreferencesWindow: NSWindow {
         emojiField = NSComboBox(frame: NSRect(x: fieldX, y: y - 2, width: fieldWidth, height: 26))
         emojiField.isEditable = true
         emojiField.completes = true
-        emojiField.numberOfVisibleItems = 12
+        emojiField.numberOfVisibleItems = 20
         populateStandardEmoji()
         contentView.addSubview(emojiField)
 
