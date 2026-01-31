@@ -15,6 +15,9 @@ struct Config {
     let slackClientId: String?
     let slackClientSecret: String?
 
+    /// Default reminders list name (sentinel — means "use system default").
+    static let defaultReminderListName = "Reminders"
+
     /// Default templates for reminders. Use literal `\n` for newlines in storage/UI.
     static let defaultTitleTemplate = "Slack: {sender} in #{channel}"
     static let defaultNotesTemplate = #"{message}\n\n{permalink}"#

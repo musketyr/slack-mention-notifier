@@ -49,13 +49,32 @@ class ReminderService {
     /// Find the target calendar by name, or fall back to the default reminders calendar.
     private func findOrDefaultCalendar() -> EKCalendar {
         let calendars = store.calendars(for: .reminder)
+        let defaultCalendar = store.defaultCalendarForNewReminders()
 
+        Logger.log("📋 Available Reminders lists: \(calendars.map { $0.title }.joined(separator: ", "))")
+        Logger.log("📋 System default list: \(defaultCalendar?.title ?? "none")")
+
+        // If user hasn't explicitly configured a list, use system default
+        if listName == Config.defaultReminderListName {
+            if let cal = defaultCalendar {
+                Logger.log("📋 Using system default list: \(cal.title)")
+                return cal
+            }
+        }
+
+        // Try to find by exact name
         if let match = calendars.first(where: { $0.title == listName }) {
             return match
         }
 
+        // Try case-insensitive match
+        if let match = calendars.first(where: { $0.title.lowercased() == listName.lowercased() }) {
+            Logger.log("📋 Found list '\(match.title)' (case-insensitive match for '\(listName)')")
+            return match
+        }
+
         Logger.log("⚠️  Reminder list '\(listName)' not found, using default")
-        return store.defaultCalendarForNewReminders() ?? calendars.first!
+        return defaultCalendar ?? calendars.first!
     }
 
     /// Get all available Reminders list names.
