@@ -120,6 +120,17 @@ struct SlackAPI {
         return result["messages"] as? [[String: Any]] ?? []
     }
 
+    /// Get all custom emoji names in the workspace.
+    func listEmoji() async throws -> [String] {
+        let result = try await get("emoji.list", params: [:])
+        if result["ok"] as? Bool != true {
+            print("⚠️  emoji.list failed: \(result["error"] as? String ?? "unknown")")
+            return []
+        }
+        guard let emoji = result["emoji"] as? [String: Any] else { return [] }
+        return Array(emoji.keys).sorted()
+    }
+
     /// List all public channels in the workspace.
     func listAllPublicChannels() async throws -> [(id: String, name: String, isMember: Bool)] {
         var channels: [(id: String, name: String, isMember: Bool)] = []

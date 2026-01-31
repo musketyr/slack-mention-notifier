@@ -8,6 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusMenuItem: NSMenuItem!
     private var authMenuItem: NSMenuItem!
     private var launchAtLoginItem: NSMenuItem!
+    private var preferencesWindow: PreferencesWindow?
     private var config: Config!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -70,6 +71,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         launchAtLoginItem.state = isLaunchAtLoginEnabled ? .on : .off
         menu.addItem(launchAtLoginItem)
 
+        let prefsItem = NSMenuItem(title: "Preferences...", action: #selector(openPreferences), keyEquivalent: ",")
+        prefsItem.target = self
+        menu.addItem(prefsItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let signOutItem = NSMenuItem(title: "Sign Out", action: #selector(signOut), keyEquivalent: "")
@@ -109,6 +114,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 print("⚠️  Failed to toggle Launch at Login: \(error)")
             }
         }
+    }
+
+    // MARK: - Preferences
+
+    @objc private func openPreferences() {
+        if preferencesWindow == nil {
+            preferencesWindow = PreferencesWindow()
+        }
+        // Load custom emoji if we have a bot token
+        if let botToken = config.slackBotToken.isEmpty ? nil : config.slackBotToken {
+            preferencesWindow?.loadCustomEmoji(botToken: botToken)
+        }
+        preferencesWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     // MARK: - Slack Connection

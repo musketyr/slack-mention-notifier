@@ -57,4 +57,10 @@ class ReminderService {
         print("⚠️  Reminder list '\(listName)' not found, using default")
         return store.defaultCalendarForNewReminders() ?? calendars.first!
     }
+
+    /// Get all available Reminders list names.
+    static func availableLists() -> [String] {
+        let store = EKEventStore()
+        return store.calendars(for: .reminder).map { $0.title }
+    }
 }
