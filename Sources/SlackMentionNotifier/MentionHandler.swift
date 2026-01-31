@@ -121,16 +121,52 @@ actor MentionHandler {
             print("⚠️  Failed to fetch context: \(error)")
         }
 
-        // 3. Create Apple Reminder
+        // 3. Resolve user mentions in message text
+        let resolvedText = await resolveMentions(in: event.text)
+
+        // 4. Create Apple Reminder
         let title = "Slack: \(senderName) in #\(channelName)"
         let notes = permalink != nil
-            ? "\(event.text)\n\n\(permalink!)"
-            : event.text
+            ? "\(resolvedText)\n\n\(permalink!)"
+            : resolvedText
 
         await reminderService.createReminder(title: title, notes: notes)
 
-        // 4. macOS notification
+        // 5. macOS notification
         await sendLocalNotification(title: "Slack mention", body: "\(senderName) in #\(channelName)")
+    }
+
+    /// Cache of resolved user IDs → display names.
+    private var userNameCache: [String: String] = [:]
+
+    /// Replace <@U...> mentions in text with @displayName.
+    private func resolveMentions(in text: String) async -> String {
+        // Find all <@UXXXXXX> patterns
+        let pattern = /<@(U[A-Z0-9]+)>/
+        var result = text
+
+        let matches = text.matches(of: pattern)
+        for match in matches {
+            let userId = String(match.output.1)
+            let displayName: String
+
+            if let cached = userNameCache[userId] {
+                displayName = cached
+            } else {
+                do {
+                    let info = try await slackAPI.getUserInfo(userId: userId)
+                    let name = info.realName ?? info.name
+                    userNameCache[userId] = name
+                    displayName = name
+                } catch {
+                    displayName = userId
+                }
+            }
+
+            result = result.replacingOccurrences(of: "<@\(userId)>", with: "@\(displayName)")
+        }
+
+        return result
     }
 
     private func sendLocalNotification(title: String, body: String) async {
