@@ -151,12 +151,16 @@ private actor CallbackServer {
         let listener = try NWListener(using: .tcp, on: .any)
         self.listener = listener
 
+        // Use a class wrapper to safely capture in the Sendable closure
+        final class PortBox: @unchecked Sendable {
+            var port: UInt16 = 0
+        }
+        let portBox = PortBox()
         let ready = DispatchSemaphore(value: 0)
-        var listenerPort: UInt16 = 0
 
         listener.stateUpdateHandler = { state in
             if case .ready = state {
-                listenerPort = listener.port?.rawValue ?? 0
+                portBox.port = listener.port?.rawValue ?? 0
                 ready.signal()
             }
         }
@@ -168,11 +172,11 @@ private actor CallbackServer {
         listener.start(queue: DispatchQueue(label: "oauth-callback"))
 
         // Wait up to 5 seconds for listener to be ready
-        guard ready.wait(timeout: .now() + 5) == .success, listenerPort > 0 else {
+        guard ready.wait(timeout: .now() + 5) == .success, portBox.port > 0 else {
             throw OAuthError.serverStartFailed
         }
 
-        return listenerPort
+        return portBox.port
     }
 
     /// Wait for the authorization code from the callback.
