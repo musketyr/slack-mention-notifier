@@ -11,18 +11,36 @@ A lightweight macOS menu bar app that monitors Slack mentions via **Socket Mode*
 ## Prerequisites
 
 1. **macOS 13+** with Xcode Command Line Tools
-2. A **Slack App** with Socket Mode enabled:
-   - Go to [api.slack.com/apps](https://api.slack.com/apps)
-   - Create a new app (or use existing)
-   - **Socket Mode**: Enable it, generate an App-Level Token (`xapp-...`) with `connections:write` scope
-   - **Event Subscriptions**: Enable, subscribe to `message.channels` and `message.groups`
-   - **Bot Token Scopes**: `reactions:write`, `channels:history`, `groups:history`, `users:read`, `channels:read`, `groups:read`, `chat:write`
-   - Install the app to your workspace
-   - Copy the Bot Token (`xoxb-...`)
+2. A **Slack App** with Socket Mode enabled (see [Slack App Setup](#slack-app-setup-details) below)
 
 ## Setup
 
-### 1. Create config file
+There are two ways to configure the app:
+
+### Option A: Sign in with Slack (OAuth — recommended)
+
+This is the easiest setup. You only need the app-level token and OAuth credentials:
+
+```bash
+mkdir -p ~/.config/slack-mention-notifier
+cat > ~/.config/slack-mention-notifier/config.env << 'EOF'
+SLACK_APP_TOKEN=xapp-1-...          # Socket Mode app-level token
+SLACK_CLIENT_ID=123456.789012       # From Slack App → Basic Information
+SLACK_CLIENT_SECRET=abc123...       # From Slack App → Basic Information
+
+# Optional
+APPLE_REMINDERS_LIST=Reminders
+EOF
+```
+
+Then launch the app and click **"Sign in with Slack..."** in the menu bar. This will:
+1. Open your browser to authorize the app
+2. Store the bot token securely in your macOS Keychain
+3. Automatically detect your Slack user ID
+
+### Option B: Manual token configuration
+
+For advanced users or CI/automation:
 
 ```bash
 mkdir -p ~/.config/slack-mention-notifier
@@ -31,8 +49,8 @@ SLACK_APP_TOKEN=xapp-1-...          # Socket Mode app-level token
 SLACK_BOT_TOKEN=xoxb-...            # Bot token
 SLACK_TRACKED_USER_ID=U...          # Your Slack user ID
 
-# Target Apple Reminders list (default: "Reminders")
-APPLE_REMINDERS_LIST=Připomínky
+# Optional
+APPLE_REMINDERS_LIST=Reminders
 EOF
 ```
 
@@ -124,15 +142,83 @@ Subscribe to these bot events:
 - `message.im` — direct messages (optional)
 - `message.mpim` — group DMs (optional)
 
+### OAuth (for "Sign in with Slack")
+
+If distributing the app to others:
+
+1. Go to **OAuth & Permissions** → **Redirect URLs**
+2. Add: `http://localhost` (the app uses a dynamic port, so just the host is needed)
+3. Note the **Client ID** and **Client Secret** from **Basic Information**
+
+The app starts a temporary local HTTP server during sign-in to receive the OAuth callback.
+
 ### Required Bot Token Scopes
 
 - `reactions:write` — react to messages
 - `channels:history` — read public channel messages
-- `groups:history` — read private channel messages
-- `users:read` — get user display names
 - `channels:read` — get channel names
+- `groups:history` — read private channel messages
 - `groups:read` — get private channel names
+- `im:history` — read direct messages
+- `im:read` — list DM conversations
+- `mpim:history` — read group DMs
+- `mpim:read` — list group DM conversations
+- `users:read` — get user display names
 - `chat:write` — for getPermalink
+
+### App Manifest
+
+```json
+{
+  "display_information": {
+    "name": "Slack Mention Notifier",
+    "description": "Monitors mentions and creates Apple Reminders",
+    "background_color": "#4A154B"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Mention Notifier",
+      "always_online": true
+    }
+  },
+  "oauth_config": {
+    "redirect_urls": [
+      "http://localhost"
+    ],
+    "scopes": {
+      "bot": [
+        "channels:history",
+        "channels:read",
+        "chat:write",
+        "groups:history",
+        "groups:read",
+        "im:history",
+        "im:read",
+        "mpim:history",
+        "mpim:read",
+        "reactions:write",
+        "users:read"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "bot_events": [
+        "message.channels",
+        "message.groups",
+        "message.im",
+        "message.mpim"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": false
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": true,
+    "token_rotation_enabled": false
+  }
+}
+```
 
 ## License
 
