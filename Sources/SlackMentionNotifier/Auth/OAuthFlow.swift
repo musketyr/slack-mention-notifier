@@ -31,13 +31,18 @@ actor OAuthFlow {
         self.scopes = scopes
     }
 
+    /// Fixed port for the OAuth callback server.
+    /// Must match the redirect URL configured in the Slack app.
+    static let callbackPort: UInt16 = 17380
+    static let redirectUri = "http://localhost:\(callbackPort)/slack/callback"
+
     /// Run the full OAuth flow: start local server → open browser → wait for code → exchange for token.
     /// Returns (botToken, teamName, authedUserId).
     func authenticate() async throws -> OAuthResult {
         // 1. Start local callback server
         let server = CallbackServer()
-        let port = try await server.start()
-        let redirectUri = "http://localhost:\(port)/callback"
+        try await server.start(port: Self.callbackPort)
+        let redirectUri = Self.redirectUri
 
         print("🔐 OAuth callback server listening on port \(port)")
 
@@ -146,22 +151,22 @@ private actor CallbackServer {
     private var listener: NWListener?
     private var continuation: CheckedContinuation<String, Error>?
 
-    /// Start the server and return the port it's listening on.
-    func start() throws -> UInt16 {
-        let listener = try NWListener(using: .tcp, on: .any)
+    /// Start the server on a fixed port.
+    func start(port: UInt16) throws {
+        let nwPort = NWEndpoint.Port(rawValue: port)!
+        let listener = try NWListener(using: .tcp, on: nwPort)
         self.listener = listener
 
-        // Use a class wrapper to safely capture in the Sendable closure
-        final class PortBox: @unchecked Sendable {
-            var port: UInt16 = 0
-        }
-        let portBox = PortBox()
         let ready = DispatchSemaphore(value: 0)
 
         listener.stateUpdateHandler = { state in
-            if case .ready = state {
-                portBox.port = listener.port?.rawValue ?? 0
+            switch state {
+            case .ready:
                 ready.signal()
+            case .failed:
+                ready.signal()
+            default:
+                break
             }
         }
 
@@ -172,11 +177,9 @@ private actor CallbackServer {
         listener.start(queue: DispatchQueue(label: "oauth-callback"))
 
         // Wait up to 5 seconds for listener to be ready
-        guard ready.wait(timeout: .now() + 5) == .success, portBox.port > 0 else {
+        guard ready.wait(timeout: .now() + 5) == .success else {
             throw OAuthError.serverStartFailed
         }
-
-        return portBox.port
     }
 
     /// Wait for the authorization code from the callback.
